@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const colorPalettes = {
   soft: ['#FFB5BA', '#FFDAB3', '#FFF4B5', '#B5EAAA', '#B5D8EB', '#D4B5EB', '#F5CAE0', '#C9E4CA'],
@@ -114,6 +114,15 @@ const drawings = [
     ]
   },
   {
+    name: 'Heart',
+    icon: '❤️',
+    paths: [
+      { id: 'heart', d: 'M210 280 Q100 200 100 120 Q100 60 160 60 Q210 60 210 120 Q210 60 260 60 Q320 60 320 120 Q320 200 210 280' },
+      { id: 'shine1', d: 'M140 100 Q150 80 160 100 Q150 90 140 100' },
+      { id: 'shine2', d: 'M130 130 Q135 120 140 130' },
+    ]
+  },
+  {
     name: 'Free',
     icon: '✏️',
     paths: []
@@ -197,7 +206,7 @@ export default function ColoringGame() {
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Menu states
-  const [activeMenu, setActiveMenu] = useState(null); // 'pictures', 'colors', 'tools', 'settings', 'music'
+  const [activeMenu, setActiveMenu] = useState(null);
 
   // Drawing state
   const [tool, setTool] = useState('fill');
@@ -206,8 +215,15 @@ export default function ColoringGame() {
   const [drawingPaths, setDrawingPaths] = useState({});
   const [currentPath, setCurrentPath] = useState(null);
 
+  // Undo history
+  const [history, setHistory] = useState([]);
+  const maxHistory = 20;
+
   // Window size for responsive canvas
   const [windowSize, setWindowSize] = useState({ width: 800, height: 600 });
+
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false);
 
   const canvasRef = useRef(null);
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
@@ -220,6 +236,25 @@ export default function ColoringGame() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Save state to history
+  const saveToHistory = useCallback(() => {
+    const state = {
+      filledColors: { ...filledColors },
+      drawingPaths: JSON.parse(JSON.stringify(drawingPaths)),
+    };
+    setHistory(prev => [...prev.slice(-maxHistory + 1), state]);
+  }, [filledColors, drawingPaths]);
+
+  // Undo function
+  const undo = useCallback(() => {
+    if (history.length === 0) return;
+
+    const previousState = history[history.length - 1];
+    setFilledColors(previousState.filledColors);
+    setDrawingPaths(previousState.drawingPaths);
+    setHistory(prev => prev.slice(0, -1));
+  }, [history]);
 
   const toggleMenu = (menu) => {
     setActiveMenu(activeMenu === menu ? null : menu);
@@ -242,6 +277,7 @@ export default function ColoringGame() {
   const handlePointerDown = (e) => {
     if (tool === 'fill') return;
     e.preventDefault();
+    saveToHistory();
     setIsDrawing(true);
     const pos = getPointerPosition(e);
     setCurrentPath({
@@ -284,6 +320,7 @@ export default function ColoringGame() {
 
   const handlePathClick = (pathId) => {
     if (tool !== 'fill') return;
+    saveToHistory();
     setFilledColors(prev => ({
       ...prev,
       [`${currentDrawing}-${pathId}`]: selectedColor
@@ -301,11 +338,63 @@ export default function ColoringGame() {
   };
 
   const clearDrawing = () => {
+    saveToHistory();
     const keysToRemove = Object.keys(filledColors).filter(k => k.startsWith(`${currentDrawing}-`));
     const newColors = { ...filledColors };
     keysToRemove.forEach(k => delete newColors[k]);
     setFilledColors(newColors);
     setDrawingPaths(prev => ({ ...prev, [currentDrawing]: [] }));
+  };
+
+  // Save artwork as image
+  const saveArtwork = async () => {
+    if (!canvasRef.current || isSaving) return;
+
+    setIsSaving(true);
+
+    try {
+      const svg = canvasRef.current;
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 840;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+
+        // Fill background
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw SVG
+        ctx.drawImage(img, 0, 0, 840, 600);
+
+        // Create download link
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `my-coloring-${drawings[currentDrawing].name.toLowerCase()}-${Date.now()}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          URL.revokeObjectURL(svgUrl);
+          setIsSaving(false);
+        }, 'image/png');
+      };
+
+      img.onerror = () => {
+        setIsSaving(false);
+      };
+
+      img.src = svgUrl;
+    } catch (error) {
+      setIsSaving(false);
+    }
   };
 
   const drawing = drawings[currentDrawing];
@@ -336,7 +425,7 @@ export default function ColoringGame() {
   const canvasDimensions = getCanvasDimensions();
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#E8E0F0' }}>
+    <div className="h-screen flex flex-col overflow-hidden select-none" style={{ backgroundColor: '#E8E0F0' }}>
       {/* Compact Top Toolbar */}
       <div className="flex items-center justify-between px-2 py-1.5 bg-white/90 backdrop-blur shadow-sm">
         <div className="flex items-center gap-1">
@@ -383,18 +472,39 @@ export default function ColoringGame() {
           </button>
         </div>
 
-        {/* Current Selection Indicator */}
-        <div className="flex items-center gap-2">
+        {/* Current Selection Indicator & Actions */}
+        <div className="flex items-center gap-1.5">
           <div
             className="w-7 h-7 rounded-full border-2 border-purple-300 shadow"
             style={{ backgroundColor: selectedColor }}
           />
-          <span className="text-xs text-purple-500">
+          <span className="text-xs text-purple-500 hidden sm:inline">
             {tool === 'fill' ? '🪣' : tool === 'pen' ? `✏️${penSize.name}` : `🧽${penSize.name}`}
           </span>
           <button
+            onClick={undo}
+            disabled={history.length === 0}
+            className={`px-2 py-1 rounded-full text-xs transition-all ${
+              history.length > 0
+                ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            title="Undo"
+          >
+            ↩️
+          </button>
+          <button
+            onClick={saveArtwork}
+            disabled={isSaving}
+            className="px-2 py-1 bg-green-100 text-green-600 rounded-full text-xs hover:bg-green-200 disabled:opacity-50"
+            title="Save artwork"
+          >
+            {isSaving ? '⏳' : '💾'}
+          </button>
+          <button
             onClick={clearDrawing}
             className="px-2 py-1 bg-pink-100 text-pink-600 rounded-full text-xs hover:bg-pink-200"
+            title="Clear"
           >
             🧹
           </button>
@@ -409,7 +519,7 @@ export default function ColoringGame() {
             {activeMenu === 'pictures' && (
               <div>
                 <p className="text-purple-400 text-xs mb-2 text-center">Choose a picture</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {drawings.map((d, i) => (
                     <button
                       key={d.name}
@@ -529,7 +639,7 @@ export default function ColoringGame() {
                   <div className="flex gap-2 justify-center items-center">
                     <button
                       onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
-                      className="w-8 h-8 bg-gray-100 rounded-full text-lg"
+                      className="w-8 h-8 bg-gray-100 rounded-full text-lg hover:bg-gray-200"
                     >
                       -
                     </button>
@@ -539,11 +649,11 @@ export default function ColoringGame() {
                       max="200"
                       value={zoom * 100}
                       onChange={(e) => setZoom(e.target.value / 100)}
-                      className="w-32"
+                      className="w-32 accent-purple-500"
                     />
                     <button
                       onClick={() => setZoom(z => Math.min(2, z + 0.25))}
-                      className="w-8 h-8 bg-gray-100 rounded-full text-lg"
+                      className="w-8 h-8 bg-gray-100 rounded-full text-lg hover:bg-gray-200"
                     >
                       +
                     </button>
@@ -575,7 +685,7 @@ export default function ColoringGame() {
                 {isPlaying && (
                   <button
                     onClick={stopMusic}
-                    className="mt-2 w-full py-1.5 bg-red-100 text-red-600 rounded-full text-sm"
+                    className="mt-2 w-full py-1.5 bg-red-100 text-red-600 rounded-full text-sm hover:bg-red-200"
                   >
                     ⏹️ Stop Music
                   </button>
@@ -586,7 +696,7 @@ export default function ColoringGame() {
             {/* Close button */}
             <button
               onClick={() => setActiveMenu(null)}
-              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs"
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs hover:bg-gray-300"
             >
               ✕
             </button>
@@ -682,9 +792,15 @@ export default function ColoringGame() {
         </div>
       </div>
 
+      {/* Bottom info bar */}
+      <div className="flex items-center justify-center gap-4 py-1.5 bg-white/60 text-xs text-purple-400">
+        <span>{drawing.icon} {drawing.name}</span>
+        {history.length > 0 && <span>↩️ {history.length}</span>}
+      </div>
+
       {/* Music indicator */}
       {isPlaying && (
-        <div className="fixed bottom-3 right-3 bg-white/90 rounded-full px-3 py-1.5 shadow-lg flex items-center gap-2 text-sm">
+        <div className="fixed bottom-12 right-3 bg-white/90 rounded-full px-3 py-1.5 shadow-lg flex items-center gap-2 text-sm">
           <span className="animate-pulse">{currentTrack?.emoji}</span>
           <span className="text-purple-500 text-xs">{currentTrack?.name}</span>
           <button onClick={stopMusic} className="text-red-400 hover:text-red-600">⏹</button>
