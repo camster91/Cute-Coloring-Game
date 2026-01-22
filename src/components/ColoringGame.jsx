@@ -3,26 +3,33 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 // ============ CONSTANTS ============
 
 const colorPalettes = {
-  soft: ['#FFB5BA', '#FFDAB3', '#FFF4B5', '#B5EAAA', '#B5D8EB', '#D4B5EB', '#F5CAE0', '#C9E4CA'],
-  nature: ['#8FBC8F', '#DEB887', '#87CEEB', '#F0E68C', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE'],
-  ocean: ['#5DADE2', '#48C9B0', '#76D7C4', '#85C1E9', '#A3E4D7', '#D4E6F1', '#FADBD8', '#F5B7B1'],
-  bold: ['#E74C3C', '#F39C12', '#27AE60', '#3498DB', '#9B59B6', '#1ABC9C', '#E91E63', '#FF5722'],
-  pastel: ['#E8D5E0', '#D5E8E0', '#E8E5D5', '#D5DEE8', '#E8D5D5', '#D5E8E8', '#E0D5E8', '#E8E0D5'],
-  rainbow: ['#FF6B6B', '#FF9F43', '#FECA57', '#48DBFB', '#1DD1A1', '#5F27CD', '#FF6B81', '#00D2D3'],
+  soft: ['#FFB5BA', '#FFDAB3', '#FFF4B5', '#B5EAAA', '#B5D8EB', '#D4B5EB', '#F5CAE0', '#C9E4CA', '#F0E6EF', '#E6F0EF'],
+  nature: ['#8FBC8F', '#DEB887', '#87CEEB', '#F0E68C', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#82E0AA', '#F8C471'],
+  ocean: ['#5DADE2', '#48C9B0', '#76D7C4', '#85C1E9', '#A3E4D7', '#D4E6F1', '#AED6F1', '#A9CCE3', '#D6EAF8', '#E8F8F5'],
+  bold: ['#E74C3C', '#F39C12', '#27AE60', '#3498DB', '#9B59B6', '#1ABC9C', '#E91E63', '#FF5722', '#00BCD4', '#8BC34A'],
+  pastel: ['#E8D5E0', '#D5E8E0', '#E8E5D5', '#D5DEE8', '#E8D5D5', '#D5E8E8', '#E0D5E8', '#E8E0D5', '#D5E0E8', '#E8E0E0'],
+  rainbow: ['#FF6B6B', '#FF9F43', '#FECA57', '#48DBFB', '#1DD1A1', '#5F27CD', '#FF6B81', '#00D2D3', '#54A0FF', '#5F27CD'],
+  neon: ['#FF00FF', '#00FFFF', '#FF00AA', '#AAFF00', '#00FF00', '#FF6600', '#0066FF', '#FF0066', '#66FF00', '#00FF66'],
+  vintage: ['#D4A574', '#C19A6B', '#A0522D', '#8B4513', '#CD853F', '#DEB887', '#F5DEB3', '#FAEBD7', '#FFE4C4', '#FFDAB9'],
 };
 
-const backgroundColors = ['#FFFFFF', '#FFF8E7', '#E8F5E9', '#E3F2FD', '#FCE4EC', '#F3E5F5', '#FFFDE7', '#E0F7FA', '#FBE9E7', '#1a1a2e', '#16213e', '#0f0f0f'];
+const backgroundColors = [
+  '#FFFFFF', '#FFF8E7', '#E8F5E9', '#E3F2FD', '#FCE4EC', '#F3E5F5',
+  '#FFFDE7', '#E0F7FA', '#FBE9E7', '#F5F5F5', '#1a1a2e', '#16213e',
+  '#0f0f0f', '#2d2d44', '#1e3a5f', '#0a1929'
+];
 
-// Brush types with their characteristics
+// Brush types with visual characteristics
 const brushTypes = [
-  { id: 'pen', name: 'Pen', icon: '✒️', opacity: 1, softness: 0, texture: false },
-  { id: 'pencil', name: 'Pencil', icon: '✏️', opacity: 0.8, softness: 0.2, texture: true },
-  { id: 'marker', name: 'Marker', icon: '🖊️', opacity: 0.7, softness: 0.1, texture: false },
-  { id: 'watercolor', name: 'Watercolor', icon: '🎨', opacity: 0.4, softness: 0.6, texture: true },
-  { id: 'crayon', name: 'Crayon', icon: '🖍️', opacity: 0.85, softness: 0.3, texture: true },
-  { id: 'airbrush', name: 'Airbrush', icon: '💨', opacity: 0.3, softness: 0.8, texture: false },
-  { id: 'calligraphy', name: 'Calligraphy', icon: '🖋️', opacity: 1, softness: 0, texture: false, variable: true },
-  { id: 'highlighter', name: 'Highlighter', icon: '🔆', opacity: 0.4, softness: 0.2, texture: false },
+  { id: 'pen', name: 'Pen', icon: '✒️', opacity: 1, softness: 0, minSize: 0.5, maxSize: 1 },
+  { id: 'pencil', name: 'Pencil', icon: '✏️', opacity: 0.85, softness: 0.1, minSize: 0.3, maxSize: 1.2 },
+  { id: 'marker', name: 'Marker', icon: '🖊️', opacity: 0.75, softness: 0, minSize: 0.8, maxSize: 1 },
+  { id: 'watercolor', name: 'Watercolor', icon: '🎨', opacity: 0.35, softness: 0.8, minSize: 0.6, maxSize: 1.5 },
+  { id: 'crayon', name: 'Crayon', icon: '🖍️', opacity: 0.9, softness: 0.2, minSize: 0.7, maxSize: 1.1 },
+  { id: 'airbrush', name: 'Airbrush', icon: '💨', opacity: 0.25, softness: 1, minSize: 1, maxSize: 2 },
+  { id: 'calligraphy', name: 'Calligraphy', icon: '🖋️', opacity: 1, softness: 0, minSize: 0.2, maxSize: 2.5 },
+  { id: 'highlighter', name: 'Highlighter', icon: '🔆', opacity: 0.35, softness: 0, minSize: 1.5, maxSize: 1.5 },
+  { id: 'spray', name: 'Spray', icon: '🎨', opacity: 0.15, softness: 1.5, minSize: 2, maxSize: 3 },
 ];
 
 // Shape tools
@@ -33,16 +40,20 @@ const shapeTools = [
   { id: 'triangle', name: 'Triangle', icon: '△' },
   { id: 'star', name: 'Star', icon: '⭐' },
   { id: 'arrow', name: 'Arrow', icon: '➡️' },
-  { id: 'polygon', name: 'Polygon', icon: '⬡' },
+  { id: 'hexagon', name: 'Hexagon', icon: '⬡' },
+  { id: 'heart', name: 'Heart', icon: '♥️' },
 ];
 
 // Symmetry modes
 const symmetryModes = [
-  { id: 'none', name: 'None', icon: '⊘' },
-  { id: 'horizontal', name: 'Horizontal', icon: '↔️' },
-  { id: 'vertical', name: 'Vertical', icon: '↕️' },
-  { id: 'quad', name: 'Quad', icon: '✚' },
-  { id: 'radial', name: 'Radial', icon: '❋', spokes: 8 },
+  { id: 'none', name: 'Off', icon: '⊘', lines: 0 },
+  { id: 'horizontal', name: 'Horizontal', icon: '↔️', lines: 1 },
+  { id: 'vertical', name: 'Vertical', icon: '↕️', lines: 1 },
+  { id: 'quad', name: 'Quad', icon: '✚', lines: 2 },
+  { id: 'radial4', name: '4-Way', icon: '✦', spokes: 4 },
+  { id: 'radial6', name: '6-Way', icon: '✶', spokes: 6 },
+  { id: 'radial8', name: '8-Way', icon: '❋', spokes: 8 },
+  { id: 'radial12', name: '12-Way', icon: '✺', spokes: 12 },
 ];
 
 const musicTracks = [
@@ -56,8 +67,7 @@ const musicTracks = [
 
 const drawings = [
   {
-    name: 'Bunny',
-    icon: '🐰',
+    name: 'Bunny', icon: '🐰',
     paths: [
       { id: 'body', d: 'M150 200 Q150 140 180 120 Q210 100 240 120 Q270 140 270 200 Q270 280 210 300 Q150 280 150 200' },
       { id: 'head', d: 'M170 130 Q170 80 210 60 Q250 80 250 130 Q250 160 210 170 Q170 160 170 130' },
@@ -68,8 +78,7 @@ const drawings = [
     ]
   },
   {
-    name: 'Flower',
-    icon: '🌸',
+    name: 'Flower', icon: '🌸',
     paths: [
       { id: 'petal1', d: 'M210 100 Q240 60 210 20 Q180 60 210 100' },
       { id: 'petal2', d: 'M210 100 Q270 100 290 70 Q260 40 210 100' },
@@ -82,16 +91,14 @@ const drawings = [
     ]
   },
   {
-    name: 'Star',
-    icon: '⭐',
+    name: 'Star', icon: '⭐',
     paths: [
       { id: 'star-outer', d: 'M210 20 L240 90 L320 100 L260 150 L280 230 L210 190 L140 230 L160 150 L100 100 L180 90 Z' },
       { id: 'star-inner', d: 'M210 60 L225 100 L270 105 L240 130 L250 175 L210 155 L170 175 L180 130 L150 105 L195 100 Z' },
     ]
   },
   {
-    name: 'Fish',
-    icon: '🐠',
+    name: 'Fish', icon: '🐠',
     paths: [
       { id: 'body', d: 'M80 150 Q120 80 200 80 Q300 80 340 150 Q300 220 200 220 Q120 220 80 150' },
       { id: 'tail', d: 'M70 150 Q30 100 50 60 Q60 100 80 150 Q60 200 50 240 Q30 200 70 150' },
@@ -103,8 +110,7 @@ const drawings = [
     ]
   },
   {
-    name: 'Butterfly',
-    icon: '🦋',
+    name: 'Butterfly', icon: '🦋',
     paths: [
       { id: 'wing-tl', d: 'M200 150 Q150 100 100 80 Q80 120 100 160 Q140 180 200 150' },
       { id: 'wing-tr', d: 'M220 150 Q270 100 320 80 Q340 120 320 160 Q280 180 220 150' },
@@ -116,8 +122,7 @@ const drawings = [
     ]
   },
   {
-    name: 'House',
-    icon: '🏠',
+    name: 'House', icon: '🏠',
     paths: [
       { id: 'roof', d: 'M100 140 L210 50 L320 140 Z' },
       { id: 'walls', d: 'M120 140 L120 280 L300 280 L300 140 Z' },
@@ -128,8 +133,7 @@ const drawings = [
     ]
   },
   {
-    name: 'Cat',
-    icon: '🐱',
+    name: 'Cat', icon: '🐱',
     paths: [
       { id: 'body', d: 'M120 180 Q100 220 120 280 Q180 320 260 280 Q280 220 260 180 Q220 140 180 140 Q140 140 120 180' },
       { id: 'head', d: 'M150 140 Q150 80 210 70 Q270 80 270 140 Q270 180 210 190 Q150 180 150 140' },
@@ -140,19 +144,14 @@ const drawings = [
     ]
   },
   {
-    name: 'Heart',
-    icon: '❤️',
+    name: 'Heart', icon: '❤️',
     paths: [
       { id: 'heart', d: 'M210 280 Q100 200 100 120 Q100 60 160 60 Q210 60 210 120 Q210 60 260 60 Q320 60 320 120 Q320 200 210 280' },
       { id: 'shine1', d: 'M140 100 Q150 80 160 100 Q150 90 140 100' },
       { id: 'shine2', d: 'M130 130 Q135 120 140 130' },
     ]
   },
-  {
-    name: 'Free',
-    icon: '✏️',
-    paths: []
-  },
+  { name: 'Free Draw', icon: '✏️', paths: [] },
 ];
 
 // ============ MUSIC HOOK ============
@@ -174,44 +173,73 @@ const useMusic = () => {
     nature: [440, 494, 523, 587, 659, 587, 523, 494, 440, 523, 587, 659],
   };
 
-  const playTrack = (track) => {
-    stopMusic();
+  const playTrack = useCallback((track) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (oscillatorRef.current) try { oscillatorRef.current.stop(); } catch(e) {}
+    if (audioContextRef.current) try { audioContextRef.current.close(); } catch(e) {}
+
     audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     gainNodeRef.current = audioContextRef.current.createGain();
     gainNodeRef.current.connect(audioContextRef.current.destination);
-    gainNodeRef.current.gain.value = 0.15;
+    gainNodeRef.current.gain.value = 0.12;
 
     const melody = melodies[track.type];
     let noteIndex = 0;
 
     const playNote = () => {
-      if (oscillatorRef.current) {
-        oscillatorRef.current.stop();
-      }
+      if (oscillatorRef.current) try { oscillatorRef.current.stop(); } catch(e) {}
       oscillatorRef.current = audioContextRef.current.createOscillator();
       oscillatorRef.current.type = 'sine';
       oscillatorRef.current.frequency.value = melody[noteIndex % melody.length];
       oscillatorRef.current.connect(gainNodeRef.current);
       oscillatorRef.current.start();
-      oscillatorRef.current.stop(audioContextRef.current.currentTime + 0.4);
+      oscillatorRef.current.stop(audioContextRef.current.currentTime + 0.35);
       noteIndex++;
     };
 
     playNote();
-    intervalRef.current = setInterval(playNote, 500);
+    intervalRef.current = setInterval(playNote, 450);
     setIsPlaying(true);
     setCurrentTrack(track);
-  };
+  }, []);
 
-  const stopMusic = () => {
+  const stopMusic = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (oscillatorRef.current) try { oscillatorRef.current.stop(); } catch(e) {}
-    if (audioContextRef.current) audioContextRef.current.close();
+    if (audioContextRef.current) try { audioContextRef.current.close(); } catch(e) {}
     setIsPlaying(false);
     setCurrentTrack(null);
-  };
+  }, []);
 
   return { isPlaying, currentTrack, playTrack, stopMusic };
+};
+
+// ============ SMOOTH PATH UTILITY ============
+
+const smoothPath = (points) => {
+  if (points.length < 3) {
+    if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+    return '';
+  }
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const p0 = points[i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+
+    const midX = (p1.x + p2.x) / 2;
+    const midY = (p1.y + p2.y) / 2;
+
+    d += ` Q ${p1.x} ${p1.y} ${midX} ${midY}`;
+  }
+
+  const last = points[points.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+
+  return d;
 };
 
 // ============ MAIN COMPONENT ============
@@ -231,7 +259,7 @@ export default function ColoringGame() {
   // Tool state
   const [activeTool, setActiveTool] = useState('brush');
   const [brushType, setBrushType] = useState(brushTypes[0]);
-  const [brushSize, setBrushSize] = useState(8);
+  const [brushSize, setBrushSize] = useState(12);
   const [shapeType, setShapeType] = useState(shapeTools[0]);
   const [shapeFill, setShapeFill] = useState(true);
   const [symmetryMode, setSymmetryMode] = useState(symmetryModes[0]);
@@ -241,17 +269,15 @@ export default function ColoringGame() {
   const [isPanning, setIsPanning] = useState(false);
   const [currentPath, setCurrentPath] = useState(null);
   const [currentShape, setCurrentShape] = useState(null);
+  const lastPointRef = useRef(null);
+  const lastTimeRef = useRef(0);
 
   // Layers system
   const [layers, setLayers] = useState([
     { id: 'layer-1', name: 'Layer 1', visible: true, locked: false, opacity: 1, paths: [] }
   ]);
   const [activeLayerId, setActiveLayerId] = useState('layer-1');
-
-  // Selection state
-  const [selectedElements, setSelectedElements] = useState([]);
-  const [selectionBox, setSelectionBox] = useState(null);
-  const [transformMode, setTransformMode] = useState(null);
+  const [draggedLayerId, setDraggedLayerId] = useState(null);
 
   // UI state
   const [activePanel, setActivePanel] = useState(null);
@@ -259,7 +285,7 @@ export default function ColoringGame() {
   const [gridSize, setGridSize] = useState(20);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [showRulers, setShowRulers] = useState(false);
+  const [showMobileTools, setShowMobileTools] = useState(false);
   const [recentColors, setRecentColors] = useState([]);
   const [hexInput, setHexInput] = useState('#FFB5BA');
 
@@ -268,14 +294,15 @@ export default function ColoringGame() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const maxHistory = 50;
 
-  // Saving state
+  // Export
   const [isSaving, setIsSaving] = useState(false);
-  const [exportFormat, setExportFormat] = useState('png');
-  const [exportQuality, setExportQuality] = useState(1);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState('png');
+  const [exportQuality, setExportQuality] = useState(2);
 
   // Window size
   const [windowSize, setWindowSize] = useState({ width: 800, height: 600 });
+  const isMobile = windowSize.width < 768;
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -295,59 +322,48 @@ export default function ColoringGame() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.target.matches('input, textarea')) return;
+
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const ctrlKey = isMac ? e.metaKey : e.ctrlKey;
 
-      // Prevent default for our shortcuts
-      if (ctrlKey && ['z', 'y', 's', 'e'].includes(e.key.toLowerCase())) {
+      if (ctrlKey && ['z', 'y', 's', 'e', 'a'].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
 
-      // Tool shortcuts (only when not typing)
-      if (!e.target.matches('input, textarea')) {
-        switch (e.key.toLowerCase()) {
-          case 'v': setActiveTool('select'); break;
-          case 'b': setActiveTool('brush'); break;
-          case 'e': if (!ctrlKey) setActiveTool('eraser'); break;
-          case 'g': setActiveTool('fill'); break;
-          case 'r': setActiveTool('shape'); setShapeType(shapeTools[0]); break;
-          case 'o': setActiveTool('shape'); setShapeType(shapeTools[1]); break;
-          case 'l': setActiveTool('shape'); setShapeType(shapeTools[2]); break;
-          case 'm': setSymmetryMode(prev => {
-            const idx = symmetryModes.findIndex(s => s.id === prev.id);
-            return symmetryModes[(idx + 1) % symmetryModes.length];
-          }); break;
-          case '[': setBrushSize(s => Math.max(1, s - 2)); break;
-          case ']': setBrushSize(s => Math.min(100, s + 2)); break;
-          case ' ': if (!isDrawing) setIsPanning(true); break;
-          case 'delete':
-          case 'backspace':
-            if (selectedElements.length > 0) deleteSelected();
-            break;
-        }
+      switch (e.key.toLowerCase()) {
+        case 'v': setActiveTool('select'); break;
+        case 'b': setActiveTool('brush'); break;
+        case 'e': if (!ctrlKey) setActiveTool('eraser'); break;
+        case 'g': setActiveTool('fill'); break;
+        case 'u': setActiveTool('shape'); break;
+        case '[': setBrushSize(s => Math.max(1, s - 4)); break;
+        case ']': setBrushSize(s => Math.min(100, s + 4)); break;
+        case 'm': setSymmetryMode(prev => {
+          const idx = symmetryModes.findIndex(s => s.id === prev.id);
+          return symmetryModes[(idx + 1) % symmetryModes.length];
+        }); break;
+        case ' ':
+          if (!isDrawing) {
+            e.preventDefault();
+            setIsPanning(true);
+          }
+          break;
+        case 'escape': setActivePanel(null); break;
       }
 
-      // Ctrl/Cmd shortcuts
       if (ctrlKey) {
         switch (e.key.toLowerCase()) {
-          case 'z':
-            if (e.shiftKey) redo();
-            else undo();
-            break;
+          case 'z': e.shiftKey ? redo() : undo(); break;
           case 'y': redo(); break;
           case 's': saveArtwork(); break;
           case 'e': setShowExportModal(true); break;
-          case 'a':
-            e.preventDefault();
-            selectAll();
-            break;
+          case '0': e.preventDefault(); setZoom(1); setPan({ x: 0, y: 0 }); break;
         }
       }
 
-      // Zoom with +/-
-      if (e.key === '=' || e.key === '+') setZoom(z => Math.min(4, z + 0.1));
-      if (e.key === '-') setZoom(z => Math.max(0.25, z - 0.1));
-      if (e.key === '0' && ctrlKey) { e.preventDefault(); setZoom(1); setPan({ x: 0, y: 0 }); }
+      if (e.key === '=' || e.key === '+') setZoom(z => Math.min(4, z + 0.25));
+      if (e.key === '-' && !ctrlKey) setZoom(z => Math.max(0.25, z - 0.25));
     };
 
     const handleKeyUp = (e) => {
@@ -360,23 +376,23 @@ export default function ColoringGame() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isDrawing, selectedElements]);
+  }, [isDrawing]);
 
   // Wheel zoom
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const handleWheel = (e) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
         setZoom(z => Math.max(0.25, Math.min(4, z + delta)));
       }
     };
 
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('wheel', handleWheel, { passive: false });
-      return () => container.removeEventListener('wheel', handleWheel);
-    }
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
   }, []);
 
   // ============ HISTORY FUNCTIONS ============
@@ -387,20 +403,21 @@ export default function ColoringGame() {
       filledColors: { ...filledColors },
     };
 
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(state);
-    if (newHistory.length > maxHistory) newHistory.shift();
-
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [layers, filledColors, history, historyIndex]);
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(state);
+      if (newHistory.length > maxHistory) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
+  }, [layers, filledColors, historyIndex]);
 
   const undo = useCallback(() => {
     if (historyIndex > 0) {
-      const previousState = history[historyIndex - 1];
-      setLayers(previousState.layers);
-      setFilledColors(previousState.filledColors);
-      setHistoryIndex(historyIndex - 1);
+      const prevState = history[historyIndex - 1];
+      setLayers(prevState.layers);
+      setFilledColors(prevState.filledColors);
+      setHistoryIndex(i => i - 1);
     }
   }, [history, historyIndex]);
 
@@ -409,11 +426,13 @@ export default function ColoringGame() {
       const nextState = history[historyIndex + 1];
       setLayers(nextState.layers);
       setFilledColors(nextState.filledColors);
-      setHistoryIndex(historyIndex + 1);
+      setHistoryIndex(i => i + 1);
     }
   }, [history, historyIndex]);
 
   // ============ LAYER FUNCTIONS ============
+
+  const getActiveLayer = useCallback(() => layers.find(l => l.id === activeLayerId), [layers, activeLayerId]);
 
   const addLayer = () => {
     const newLayer = {
@@ -428,81 +447,47 @@ export default function ColoringGame() {
     setActiveLayerId(newLayer.id);
   };
 
-  const deleteLayer = (layerId) => {
-    if (layers.length === 1) return;
-    const newLayers = layers.filter(l => l.id !== layerId);
+  const deleteLayer = (id) => {
+    if (layers.length <= 1) return;
+    const newLayers = layers.filter(l => l.id !== id);
     setLayers(newLayers);
-    if (activeLayerId === layerId) {
-      setActiveLayerId(newLayers[0].id);
-    }
+    if (activeLayerId === id) setActiveLayerId(newLayers[0].id);
   };
 
-  const duplicateLayer = (layerId) => {
-    const layer = layers.find(l => l.id === layerId);
+  const duplicateLayer = (id) => {
+    const layer = layers.find(l => l.id === id);
     if (!layer) return;
     const newLayer = {
       ...JSON.parse(JSON.stringify(layer)),
       id: `layer-${Date.now()}`,
       name: `${layer.name} copy`
     };
-    const idx = layers.findIndex(l => l.id === layerId);
+    const idx = layers.findIndex(l => l.id === id);
     const newLayers = [...layers];
     newLayers.splice(idx + 1, 0, newLayer);
     setLayers(newLayers);
   };
 
-  const toggleLayerVisibility = (layerId) => {
-    setLayers(layers.map(l =>
-      l.id === layerId ? { ...l, visible: !l.visible } : l
-    ));
-  };
+  const toggleLayerVisibility = (id) => setLayers(layers.map(l => l.id === id ? { ...l, visible: !l.visible } : l));
+  const toggleLayerLock = (id) => setLayers(layers.map(l => l.id === id ? { ...l, locked: !l.locked } : l));
+  const setLayerOpacity = (id, opacity) => setLayers(layers.map(l => l.id === id ? { ...l, opacity } : l));
 
-  const toggleLayerLock = (layerId) => {
-    setLayers(layers.map(l =>
-      l.id === layerId ? { ...l, locked: !l.locked } : l
-    ));
-  };
-
-  const setLayerOpacity = (layerId, opacity) => {
-    setLayers(layers.map(l =>
-      l.id === layerId ? { ...l, opacity } : l
-    ));
-  };
-
-  const renameLayer = (layerId, name) => {
-    setLayers(layers.map(l =>
-      l.id === layerId ? { ...l, name } : l
-    ));
-  };
-
-  const moveLayer = (fromIdx, toIdx) => {
+  const handleLayerDragStart = (id) => setDraggedLayerId(id);
+  const handleLayerDragOver = (e) => e.preventDefault();
+  const handleLayerDrop = (targetId) => {
+    if (!draggedLayerId || draggedLayerId === targetId) return;
+    const fromIdx = layers.findIndex(l => l.id === draggedLayerId);
+    const toIdx = layers.findIndex(l => l.id === targetId);
     const newLayers = [...layers];
     const [moved] = newLayers.splice(fromIdx, 1);
     newLayers.splice(toIdx, 0, moved);
     setLayers(newLayers);
-  };
-
-  const mergeLayerDown = (layerId) => {
-    const idx = layers.findIndex(l => l.id === layerId);
-    if (idx <= 0) return;
-
-    const currentLayer = layers[idx];
-    const belowLayer = layers[idx - 1];
-
-    const mergedLayer = {
-      ...belowLayer,
-      paths: [...belowLayer.paths, ...currentLayer.paths]
-    };
-
-    const newLayers = layers.filter(l => l.id !== layerId);
-    newLayers[idx - 1] = mergedLayer;
-    setLayers(newLayers);
-    setActiveLayerId(belowLayer.id);
+    setDraggedLayerId(null);
   };
 
   // ============ DRAWING FUNCTIONS ============
 
-  const getPointerPosition = (e) => {
+  const getPointerPosition = useCallback((e) => {
     const svg = canvasRef.current;
     if (!svg) return { x: 0, y: 0 };
 
@@ -513,88 +498,67 @@ export default function ColoringGame() {
     let x = ((clientX - rect.left) / rect.width) * 420;
     let y = ((clientY - rect.top) / rect.height) * 300;
 
-    // Apply pan offset
-    x = x - pan.x;
-    y = y - pan.y;
-
-    // Snap to grid
     if (snapToGrid) {
       x = Math.round(x / gridSize) * gridSize;
       y = Math.round(y / gridSize) * gridSize;
     }
 
     return { x, y };
-  };
+  }, [snapToGrid, gridSize]);
 
-  const getActiveLayer = () => layers.find(l => l.id === activeLayerId);
-
-  const applyBrushEffect = (path, brushType) => {
-    return {
-      ...path,
-      opacity: brushType.opacity * colorOpacity,
-      filter: brushType.softness > 0 ? `blur(${brushType.softness * 2}px)` : 'none',
-    };
-  };
-
-  const generateSymmetricPaths = (points, mode) => {
-    const allPaths = [points];
-    const centerX = 210;
-    const centerY = 150;
+  const generateSymmetricPoints = useCallback((point, mode) => {
+    const points = [point];
+    const cx = 210, cy = 150;
 
     if (mode.id === 'horizontal') {
-      allPaths.push(points.map(p => ({ x: 2 * centerX - p.x, y: p.y })));
+      points.push({ x: 2 * cx - point.x, y: point.y });
     } else if (mode.id === 'vertical') {
-      allPaths.push(points.map(p => ({ x: p.x, y: 2 * centerY - p.y })));
+      points.push({ x: point.x, y: 2 * cy - point.y });
     } else if (mode.id === 'quad') {
-      allPaths.push(points.map(p => ({ x: 2 * centerX - p.x, y: p.y })));
-      allPaths.push(points.map(p => ({ x: p.x, y: 2 * centerY - p.y })));
-      allPaths.push(points.map(p => ({ x: 2 * centerX - p.x, y: 2 * centerY - p.y })));
-    } else if (mode.id === 'radial') {
-      const spokes = mode.spokes || 8;
-      for (let i = 1; i < spokes; i++) {
-        const angle = (2 * Math.PI * i) / spokes;
-        allPaths.push(points.map(p => {
-          const dx = p.x - centerX;
-          const dy = p.y - centerY;
-          return {
-            x: centerX + dx * Math.cos(angle) - dy * Math.sin(angle),
-            y: centerY + dx * Math.sin(angle) + dy * Math.cos(angle)
-          };
-        }));
+      points.push({ x: 2 * cx - point.x, y: point.y });
+      points.push({ x: point.x, y: 2 * cy - point.y });
+      points.push({ x: 2 * cx - point.x, y: 2 * cy - point.y });
+    } else if (mode.spokes) {
+      for (let i = 1; i < mode.spokes; i++) {
+        const angle = (2 * Math.PI * i) / mode.spokes;
+        const dx = point.x - cx;
+        const dy = point.y - cy;
+        points.push({
+          x: cx + dx * Math.cos(angle) - dy * Math.sin(angle),
+          y: cy + dx * Math.sin(angle) + dy * Math.cos(angle)
+        });
       }
     }
 
-    return allPaths;
-  };
+    return points;
+  }, []);
 
-  const handlePointerDown = (e) => {
+  const handlePointerDown = useCallback((e) => {
+    if (isPanning) return;
+
     const pos = getPointerPosition(e);
-    const activeLayer = getActiveLayer();
+    const layer = getActiveLayer();
 
-    // Check if panning
-    if (isPanning) {
-      e.preventDefault();
-      return;
-    }
-
-    // Check if layer is locked
-    if (activeLayer?.locked && activeTool !== 'fill' && activeTool !== 'select') {
-      return;
-    }
+    if (layer?.locked && activeTool !== 'fill') return;
 
     if (activeTool === 'brush' || activeTool === 'eraser') {
       e.preventDefault();
       saveToHistory();
       setIsDrawing(true);
-      setCurrentPath({
-        id: `path-${Date.now()}`,
+      lastPointRef.current = pos;
+      lastTimeRef.current = Date.now();
+
+      const initialPaths = generateSymmetricPoints(pos, symmetryMode).map((p, i) => ({
+        id: `path-${Date.now()}-${i}`,
         color: activeTool === 'eraser' ? backgroundColor : selectedColor,
         size: brushSize,
-        brushType: brushType,
+        brushType,
         opacity: activeTool === 'eraser' ? 1 : brushType.opacity * colorOpacity,
-        points: [pos],
+        points: [p],
         isEraser: activeTool === 'eraser'
-      });
+      }));
+
+      setCurrentPath(initialPaths);
     } else if (activeTool === 'shape') {
       e.preventDefault();
       saveToHistory();
@@ -602,27 +566,17 @@ export default function ColoringGame() {
       setCurrentShape({
         id: `shape-${Date.now()}`,
         type: shapeType.id,
-        startX: pos.x,
-        startY: pos.y,
-        endX: pos.x,
-        endY: pos.y,
+        startX: pos.x, startY: pos.y,
+        endX: pos.x, endY: pos.y,
         color: selectedColor,
         fill: shapeFill,
-        strokeWidth: brushSize,
+        strokeWidth: Math.max(2, brushSize / 4),
         opacity: colorOpacity
       });
-    } else if (activeTool === 'select') {
-      // Start selection box or check for element selection
-      setSelectionBox({ startX: pos.x, startY: pos.y, endX: pos.x, endY: pos.y });
-      setIsDrawing(true);
-    } else if (activeTool === 'eyedropper') {
-      // Eyedropper - would need canvas pixel reading
-      // For now, just switch back to brush
-      setActiveTool('brush');
     }
-  };
+  }, [isPanning, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill]);
 
-  const handlePointerMove = (e) => {
+  const handlePointerMove = useCallback((e) => {
     if (isPanning && e.buttons === 1) {
       const movementX = e.movementX || 0;
       const movementY = e.movementY || 0;
@@ -634,187 +588,147 @@ export default function ColoringGame() {
 
     const pos = getPointerPosition(e);
 
-    if (activeTool === 'brush' || activeTool === 'eraser') {
+    if ((activeTool === 'brush' || activeTool === 'eraser') && currentPath) {
       e.preventDefault();
-      setCurrentPath(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          points: [...prev.points, pos]
-        };
-      });
-    } else if (activeTool === 'shape') {
+
+      // Calculate speed-based size variation
+      const now = Date.now();
+      const timeDelta = now - lastTimeRef.current;
+      const lastPos = lastPointRef.current;
+
+      if (lastPos && timeDelta > 0) {
+        const distance = Math.sqrt(Math.pow(pos.x - lastPos.x, 2) + Math.pow(pos.y - lastPos.y, 2));
+        const speed = distance / timeDelta;
+
+        // Vary size based on speed (faster = thinner for calligraphy effect)
+        const speedFactor = Math.max(brushType.minSize, Math.min(brushType.maxSize, 1 - speed * 0.5));
+
+        const symmetricPoints = generateSymmetricPoints(pos, symmetryMode);
+
+        setCurrentPath(prev => prev.map((path, i) => ({
+          ...path,
+          points: [...path.points, { ...symmetricPoints[i], pressure: speedFactor }]
+        })));
+      }
+
+      lastPointRef.current = pos;
+      lastTimeRef.current = now;
+    } else if (activeTool === 'shape' && currentShape) {
       e.preventDefault();
-      setCurrentShape(prev => {
-        if (!prev) return prev;
-        let endX = pos.x;
-        let endY = pos.y;
+      let { x: endX, y: endY } = pos;
 
-        // Shift for perfect shapes
-        if (e.shiftKey) {
-          const dx = Math.abs(endX - prev.startX);
-          const dy = Math.abs(endY - prev.startY);
-          const size = Math.max(dx, dy);
-          endX = prev.startX + (endX > prev.startX ? size : -size);
-          endY = prev.startY + (endY > prev.startY ? size : -size);
-        }
+      if (e.shiftKey) {
+        const dx = Math.abs(endX - currentShape.startX);
+        const dy = Math.abs(endY - currentShape.startY);
+        const size = Math.max(dx, dy);
+        endX = currentShape.startX + (endX > currentShape.startX ? size : -size);
+        endY = currentShape.startY + (endY > currentShape.startY ? size : -size);
+      }
 
-        return { ...prev, endX, endY };
-      });
-    } else if (activeTool === 'select') {
-      setSelectionBox(prev => prev ? { ...prev, endX: pos.x, endY: pos.y } : null);
+      setCurrentShape(prev => ({ ...prev, endX, endY }));
     }
-  };
+  }, [isPanning, zoom, isDrawing, getPointerPosition, activeTool, currentPath, currentShape, brushType, generateSymmetricPoints, symmetryMode]);
 
-  const handlePointerUp = () => {
+  const handlePointerUp = useCallback(() => {
     if (!isDrawing) return;
     setIsDrawing(false);
 
     if ((activeTool === 'brush' || activeTool === 'eraser') && currentPath) {
-      if (currentPath.points.length > 1) {
-        // Apply symmetry
-        const symmetricPaths = generateSymmetricPaths(currentPath.points, symmetryMode);
-        const newPaths = symmetricPaths.map((points, i) => ({
-          ...currentPath,
-          id: `${currentPath.id}-${i}`,
-          points
-        }));
-
-        setLayers(layers.map(l => {
-          if (l.id === activeLayerId) {
-            return { ...l, paths: [...l.paths, ...newPaths] };
-          }
-          return l;
-        }));
+      const validPaths = currentPath.filter(p => p.points.length > 1);
+      if (validPaths.length > 0) {
+        setLayers(prev => prev.map(l =>
+          l.id === activeLayerId ? { ...l, paths: [...l.paths, ...validPaths] } : l
+        ));
       }
       setCurrentPath(null);
+
+      if (activeTool === 'brush' && !recentColors.includes(selectedColor)) {
+        setRecentColors(prev => [selectedColor, ...prev.slice(0, 9)]);
+      }
     } else if (activeTool === 'shape' && currentShape) {
-      setLayers(layers.map(l => {
-        if (l.id === activeLayerId) {
-          return { ...l, paths: [...l.paths, { ...currentShape, isShape: true }] };
-        }
-        return l;
-      }));
+      if (Math.abs(currentShape.endX - currentShape.startX) > 5 || Math.abs(currentShape.endY - currentShape.startY) > 5) {
+        setLayers(prev => prev.map(l =>
+          l.id === activeLayerId ? { ...l, paths: [...l.paths, { ...currentShape, isShape: true }] } : l
+        ));
+      }
       setCurrentShape(null);
-    } else if (activeTool === 'select' && selectionBox) {
-      // Find elements within selection box
-      // For now, just clear selection
-      setSelectionBox(null);
     }
-
-    // Add to recent colors
-    if (activeTool === 'brush' && !recentColors.includes(selectedColor)) {
-      setRecentColors(prev => [selectedColor, ...prev.slice(0, 7)]);
-    }
-  };
-
-  const pointsToPath = (points) => {
-    if (points.length < 2) return '';
-    let d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      d += ` L ${points[i].x} ${points[i].y}`;
-    }
-    return d;
-  };
-
-  const shapeToPath = (shape) => {
-    const { type, startX, startY, endX, endY } = shape;
-    const width = endX - startX;
-    const height = endY - startY;
-    const centerX = startX + width / 2;
-    const centerY = startY + height / 2;
-    const radius = Math.min(Math.abs(width), Math.abs(height)) / 2;
-
-    switch (type) {
-      case 'rectangle':
-        return `M ${startX} ${startY} L ${endX} ${startY} L ${endX} ${endY} L ${startX} ${endY} Z`;
-      case 'ellipse':
-        const rx = Math.abs(width) / 2;
-        const ry = Math.abs(height) / 2;
-        return `M ${centerX - rx} ${centerY} A ${rx} ${ry} 0 1 0 ${centerX + rx} ${centerY} A ${rx} ${ry} 0 1 0 ${centerX - rx} ${centerY}`;
-      case 'line':
-        return `M ${startX} ${startY} L ${endX} ${endY}`;
-      case 'triangle':
-        return `M ${centerX} ${startY} L ${endX} ${endY} L ${startX} ${endY} Z`;
-      case 'star':
-        const outerR = radius;
-        const innerR = radius * 0.4;
-        const points = [];
-        for (let i = 0; i < 10; i++) {
-          const r = i % 2 === 0 ? outerR : innerR;
-          const angle = (Math.PI * i) / 5 - Math.PI / 2;
-          points.push({
-            x: centerX + r * Math.cos(angle),
-            y: centerY + r * Math.sin(angle)
-          });
-        }
-        return `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ') + ' Z';
-      case 'arrow':
-        const arrowWidth = Math.abs(width) * 0.3;
-        return `M ${startX} ${centerY - arrowWidth/2} L ${endX - width*0.3} ${centerY - arrowWidth/2} L ${endX - width*0.3} ${startY} L ${endX} ${centerY} L ${endX - width*0.3} ${endY} L ${endX - width*0.3} ${centerY + arrowWidth/2} L ${startX} ${centerY + arrowWidth/2} Z`;
-      case 'polygon':
-        const sides = 6;
-        const polyPoints = [];
-        for (let i = 0; i < sides; i++) {
-          const angle = (2 * Math.PI * i) / sides - Math.PI / 2;
-          polyPoints.push({
-            x: centerX + radius * Math.cos(angle),
-            y: centerY + radius * Math.sin(angle)
-          });
-        }
-        return `M ${polyPoints[0].x} ${polyPoints[0].y} ` + polyPoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ') + ' Z';
-      default:
-        return '';
-    }
-  };
+  }, [isDrawing, activeTool, currentPath, currentShape, activeLayerId, recentColors, selectedColor]);
 
   const handlePathClick = (pathId) => {
     if (activeTool !== 'fill') return;
     saveToHistory();
-    setFilledColors(prev => ({
-      ...prev,
-      [`${currentDrawing}-${pathId}`]: selectedColor
-    }));
+
+    const key = `${currentDrawing}-${pathId}`;
+    setFilledColors(prev => ({ ...prev, [key]: selectedColor }));
 
     const drawing = drawings[currentDrawing];
     if (drawing.paths.length > 0) {
-      const newFilled = { ...filledColors, [`${currentDrawing}-${pathId}`]: selectedColor };
-      const allFilled = drawing.paths.every(p => newFilled[`${currentDrawing}-${p.id}`]);
-      if (allFilled) {
+      const newFilled = { ...filledColors, [key]: selectedColor };
+      if (drawing.paths.every(p => newFilled[`${currentDrawing}-${p.id}`])) {
         setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 2000);
+        setTimeout(() => setShowCelebration(false), 2500);
       }
     }
   };
 
   const clearDrawing = () => {
     saveToHistory();
-    const keysToRemove = Object.keys(filledColors).filter(k => k.startsWith(`${currentDrawing}-`));
-    const newColors = { ...filledColors };
-    keysToRemove.forEach(k => delete newColors[k]);
-    setFilledColors(newColors);
-    setLayers(layers.map(l => ({ ...l, paths: [] })));
+    setFilledColors(prev => {
+      const newColors = { ...prev };
+      Object.keys(newColors).filter(k => k.startsWith(`${currentDrawing}-`)).forEach(k => delete newColors[k]);
+      return newColors;
+    });
+    setLayers(prev => prev.map(l => ({ ...l, paths: [] })));
   };
 
-  const deleteSelected = () => {
-    // Delete selected elements
-    saveToHistory();
-    setSelectedElements([]);
-  };
+  // ============ SHAPE PATH GENERATION ============
 
-  const selectAll = () => {
-    // Select all elements in current layer
-    const layer = getActiveLayer();
-    if (layer) {
-      setSelectedElements(layer.paths.map(p => p.id));
+  const shapeToPath = (shape) => {
+    const { type, startX, startY, endX, endY } = shape;
+    const w = endX - startX, h = endY - startY;
+    const cx = startX + w / 2, cy = startY + h / 2;
+    const r = Math.min(Math.abs(w), Math.abs(h)) / 2;
+
+    switch (type) {
+      case 'rectangle':
+        return `M ${startX} ${startY} L ${endX} ${startY} L ${endX} ${endY} L ${startX} ${endY} Z`;
+      case 'ellipse':
+        const rx = Math.abs(w) / 2, ry = Math.abs(h) / 2;
+        return `M ${cx - rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx + rx} ${cy} A ${rx} ${ry} 0 1 0 ${cx - rx} ${cy}`;
+      case 'line':
+        return `M ${startX} ${startY} L ${endX} ${endY}`;
+      case 'triangle':
+        return `M ${cx} ${startY} L ${endX} ${endY} L ${startX} ${endY} Z`;
+      case 'star':
+        const pts = [];
+        for (let i = 0; i < 10; i++) {
+          const pr = i % 2 === 0 ? r : r * 0.4;
+          const angle = (Math.PI * i) / 5 - Math.PI / 2;
+          pts.push({ x: cx + pr * Math.cos(angle), y: cy + pr * Math.sin(angle) });
+        }
+        return `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ') + ' Z';
+      case 'arrow':
+        const aw = Math.abs(w) * 0.25;
+        return `M ${startX} ${cy - aw} L ${endX - w*0.35} ${cy - aw} L ${endX - w*0.35} ${startY} L ${endX} ${cy} L ${endX - w*0.35} ${endY} L ${endX - w*0.35} ${cy + aw} L ${startX} ${cy + aw} Z`;
+      case 'hexagon':
+        const hexPts = [];
+        for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI * i) / 3 - Math.PI / 2;
+          hexPts.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+        }
+        return `M ${hexPts[0].x} ${hexPts[0].y} ` + hexPts.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ') + ' Z';
+      case 'heart':
+        return `M ${cx} ${endY} C ${startX - w*0.1} ${cy + h*0.2} ${startX} ${cy - h*0.1} ${startX + w*0.25} ${startY + h*0.25} C ${cx - w*0.1} ${startY} ${cx} ${startY + h*0.15} ${cx} ${startY + h*0.35} C ${cx} ${startY + h*0.15} ${cx + w*0.1} ${startY} ${endX - w*0.25} ${startY + h*0.25} C ${endX} ${cy - h*0.1} ${endX + w*0.1} ${cy + h*0.2} ${cx} ${endY}`;
+      default:
+        return '';
     }
   };
 
-  // ============ EXPORT FUNCTIONS ============
+  // ============ EXPORT ============
 
   const saveArtwork = async (format = exportFormat, quality = exportQuality) => {
     if (!canvasRef.current || isSaving) return;
-
     setIsSaving(true);
 
     try {
@@ -826,25 +740,22 @@ export default function ColoringGame() {
         const url = URL.createObjectURL(svgBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `artwork-${drawings[currentDrawing].name.toLowerCase()}-${Date.now()}.svg`;
-        document.body.appendChild(a);
+        a.download = `artwork-${drawings[currentDrawing].name.toLowerCase().replace(' ', '-')}-${Date.now()}.svg`;
         a.click();
-        document.body.removeChild(a);
         URL.revokeObjectURL(url);
         setIsSaving(false);
+        setShowExportModal(false);
         return;
       }
 
       const svgUrl = URL.createObjectURL(svgBlob);
       const img = new Image();
-
       img.onload = () => {
-        const scale = quality === 1 ? 2 : quality === 0.5 ? 1 : 4;
+        const scale = quality;
         const canvas = document.createElement('canvas');
         canvas.width = 420 * scale;
         canvas.height = 300 * scale;
         const ctx = canvas.getContext('2d');
-
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -853,361 +764,317 @@ export default function ColoringGame() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `artwork-${drawings[currentDrawing].name.toLowerCase()}-${Date.now()}.${format}`;
-          document.body.appendChild(a);
+          a.download = `artwork-${drawings[currentDrawing].name.toLowerCase().replace(' ', '-')}-${Date.now()}.${format}`;
           a.click();
-          document.body.removeChild(a);
           URL.revokeObjectURL(url);
           URL.revokeObjectURL(svgUrl);
           setIsSaving(false);
-        }, format === 'jpg' ? 'image/jpeg' : 'image/png', format === 'jpg' ? 0.9 : undefined);
+          setShowExportModal(false);
+        }, format === 'jpg' ? 'image/jpeg' : 'image/png', 0.95);
       };
-
-      img.onerror = () => setIsSaving(false);
       img.src = svgUrl;
-    } catch (error) {
+    } catch (e) {
       setIsSaving(false);
     }
-
-    setShowExportModal(false);
   };
 
   // ============ COLOR FUNCTIONS ============
 
   const handleHexChange = (hex) => {
     setHexInput(hex);
-    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
-      setSelectedColor(hex);
-    }
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) setSelectedColor(hex);
   };
 
   // ============ RENDER ============
 
   const drawing = drawings[currentDrawing];
-  const canvasWidth = Math.min(windowSize.width - (windowSize.width > 768 ? 400 : 32), 900);
+  const canvasWidth = isMobile ? windowSize.width - 16 : Math.min(windowSize.width - 380, 900);
   const canvasHeight = canvasWidth * (300 / 420);
 
-  const themeClasses = darkMode
-    ? 'bg-gray-900 text-white'
-    : 'bg-gradient-to-br from-purple-50 to-pink-50';
+  const theme = {
+    bg: darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50',
+    panel: darkMode ? 'bg-gray-800' : 'bg-white',
+    border: darkMode ? 'border-gray-700' : 'border-gray-200',
+    text: darkMode ? 'text-gray-100' : 'text-gray-800',
+    textMuted: darkMode ? 'text-gray-400' : 'text-gray-500',
+    hover: darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100',
+    active: 'bg-purple-500 text-white',
+  };
 
   return (
-    <div className={`h-screen flex overflow-hidden select-none ${themeClasses}`}>
-      {/* Left Toolbar - Figma Style */}
-      <div className={`w-12 flex flex-col items-center py-2 gap-1 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg z-20`}>
-        {/* Tool buttons */}
-        {[
-          { id: 'select', icon: '↖️', label: 'Select (V)', key: 'V' },
-          { id: 'brush', icon: '🖌️', label: 'Brush (B)', key: 'B' },
-          { id: 'eraser', icon: '🧽', label: 'Eraser (E)', key: 'E' },
-          { id: 'fill', icon: '🪣', label: 'Fill (G)', key: 'G' },
-          { id: 'shape', icon: '⬜', label: 'Shape (R)', key: 'R' },
-          { id: 'eyedropper', icon: '💉', label: 'Eyedropper (I)', key: 'I' },
-        ].map(tool => (
-          <button
-            key={tool.id}
-            onClick={() => setActiveTool(tool.id)}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-all ${
-              activeTool === tool.id
-                ? 'bg-purple-500 text-white shadow-md'
-                : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-            }`}
-            title={tool.label}
-          >
-            {tool.icon}
+    <div className={`h-screen flex flex-col overflow-hidden select-none ${theme.bg} ${theme.text}`}>
+      {/* Top Bar */}
+      <div className={`flex items-center justify-between px-2 py-1.5 ${theme.panel} shadow-sm z-20 gap-2`}>
+        {/* Left: Logo + Drawing selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent hidden sm:block">
+            ColorStudio
+          </span>
+
+          <div className="relative">
+            <button
+              onClick={() => setActivePanel(activePanel === 'pictures' ? null : 'pictures')}
+              className={`px-2 py-1 rounded-lg text-sm flex items-center gap-1 ${theme.hover} border ${theme.border}`}
+            >
+              {drawing.icon} <span className="hidden sm:inline">{drawing.name}</span>
+              <span className="text-xs opacity-50">▼</span>
+            </button>
+            {activePanel === 'pictures' && (
+              <div className={`absolute top-full left-0 mt-1 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-2 z-50 w-64`}>
+                <div className="grid grid-cols-3 gap-1">
+                  {drawings.map((d, i) => (
+                    <button
+                      key={d.name}
+                      onClick={() => { setCurrentDrawing(i); setActivePanel(null); }}
+                      className={`p-2 rounded-lg text-center transition-all ${currentDrawing === i ? theme.active : theme.hover}`}
+                    >
+                      <div className="text-2xl">{d.icon}</div>
+                      <div className="text-xs truncate">{d.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Center: Tools (desktop) */}
+        {!isMobile && (
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            {[
+              { id: 'brush', icon: '🖌️', label: 'Brush' },
+              { id: 'eraser', icon: '🧽', label: 'Eraser' },
+              { id: 'fill', icon: '🪣', label: 'Fill' },
+              { id: 'shape', icon: '⬜', label: 'Shapes' },
+            ].map(tool => (
+              <button
+                key={tool.id}
+                onClick={() => setActiveTool(tool.id)}
+                className={`px-3 py-1.5 rounded-md text-sm transition-all ${activeTool === tool.id ? theme.active : theme.hover}`}
+                title={tool.label}
+              >
+                {tool.icon}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1">
+          <button onClick={undo} disabled={historyIndex <= 0} className={`p-1.5 rounded-lg ${historyIndex > 0 ? theme.hover : 'opacity-30'}`} title="Undo">↩️</button>
+          <button onClick={redo} disabled={historyIndex >= history.length - 1} className={`p-1.5 rounded-lg ${historyIndex < history.length - 1 ? theme.hover : 'opacity-30'}`} title="Redo">↪️</button>
+
+          <div className={`w-px h-6 mx-1 ${theme.border}`} />
+
+          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`}>−</button>
+          <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`}>+</button>
+
+          <div className={`w-px h-6 mx-1 ${theme.border}`} />
+
+          <button onClick={() => setShowExportModal(true)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Export">💾</button>
+          <button onClick={() => setActivePanel(activePanel === 'music' ? null : 'music')} className={`p-1.5 rounded-lg ${isPlaying ? 'bg-green-500 text-white' : theme.hover}`}>
+            {isPlaying ? '🎵' : '🎶'}
           </button>
-        ))}
+          <button onClick={() => setDarkMode(!darkMode)} className={`p-1.5 rounded-lg ${theme.hover}`}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
 
-        <div className={`w-8 h-px my-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
-
-        {/* Symmetry */}
-        <button
-          onClick={() => setActivePanel(activePanel === 'symmetry' ? null : 'symmetry')}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-all ${
-            symmetryMode.id !== 'none'
-              ? 'bg-blue-500 text-white'
-              : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-          }`}
-          title="Symmetry (M)"
-        >
-          {symmetryMode.icon}
-        </button>
-
-        <div className="flex-1" />
-
-        {/* Bottom actions */}
-        <button
-          onClick={() => setShowGrid(!showGrid)}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-all ${
-            showGrid ? 'bg-green-500 text-white' : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-          }`}
-          title="Toggle Grid"
-        >
-          #
-        </button>
-
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-all ${
-            darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-          }`}
-          title="Toggle Theme"
-        >
-          {darkMode ? '☀️' : '🌙'}
-        </button>
+          {isMobile && (
+            <button onClick={() => setShowMobileTools(!showMobileTools)} className={`p-1.5 rounded-lg ${theme.hover}`}>
+              🎨
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Secondary toolbar for active tool */}
-      {(activeTool === 'brush' || activeTool === 'eraser') && (
-        <div className={`w-48 py-2 px-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-r flex flex-col gap-2 overflow-y-auto`}>
-          <div className="text-xs font-medium text-gray-500 px-1">Brush Type</div>
-          <div className="grid grid-cols-4 gap-1">
-            {brushTypes.map(brush => (
+      {/* Music Panel */}
+      {activePanel === 'music' && (
+        <div className={`absolute top-14 right-4 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-3 z-50 w-64`}>
+          <div className="text-sm font-medium mb-2">Background Music</div>
+          <div className="grid grid-cols-2 gap-2">
+            {musicTracks.map(track => (
               <button
-                key={brush.id}
-                onClick={() => setBrushType(brush)}
-                className={`p-1.5 rounded text-lg ${
-                  brushType.id === brush.id
-                    ? 'bg-purple-500 text-white'
-                    : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-                title={brush.name}
+                key={track.name}
+                onClick={() => isPlaying && currentTrack?.name === track.name ? stopMusic() : playTrack(track)}
+                className={`p-2 rounded-lg text-center transition-all ${currentTrack?.name === track.name ? 'bg-green-500 text-white' : theme.hover}`}
               >
-                {brush.icon}
+                <div className="text-xl">{track.emoji}</div>
+                <div className="text-xs">{track.name}</div>
               </button>
             ))}
           </div>
-
-          <div className="text-xs font-medium text-gray-500 px-1 mt-2">Size: {brushSize}px</div>
-          <input
-            type="range"
-            min="1"
-            max="100"
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="w-full accent-purple-500"
-          />
-
-          <div className="text-xs font-medium text-gray-500 px-1 mt-2">Opacity: {Math.round(colorOpacity * 100)}%</div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={colorOpacity * 100}
-            onChange={(e) => setColorOpacity(e.target.value / 100)}
-            className="w-full accent-purple-500"
-          />
-        </div>
-      )}
-
-      {activeTool === 'shape' && (
-        <div className={`w-48 py-2 px-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-r flex flex-col gap-2`}>
-          <div className="text-xs font-medium text-gray-500 px-1">Shape Type</div>
-          <div className="grid grid-cols-4 gap-1">
-            {shapeTools.map(shape => (
-              <button
-                key={shape.id}
-                onClick={() => setShapeType(shape)}
-                className={`p-1.5 rounded text-lg ${
-                  shapeType.id === shape.id
-                    ? 'bg-purple-500 text-white'
-                    : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-                title={shape.name}
-              >
-                {shape.icon}
-              </button>
-            ))}
-          </div>
-
-          <label className="flex items-center gap-2 text-sm mt-2">
-            <input
-              type="checkbox"
-              checked={shapeFill}
-              onChange={(e) => setShapeFill(e.target.checked)}
-              className="accent-purple-500"
-            />
-            Fill Shape
-          </label>
-
-          <div className="text-xs font-medium text-gray-500 px-1 mt-2">Stroke: {brushSize}px</div>
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="w-full accent-purple-500"
-          />
-        </div>
-      )}
-
-      {/* Symmetry Panel */}
-      {activePanel === 'symmetry' && (
-        <div className={`w-48 py-2 px-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-r flex flex-col gap-2`}>
-          <div className="text-xs font-medium text-gray-500 px-1">Symmetry Mode</div>
-          {symmetryModes.map(mode => (
-            <button
-              key={mode.id}
-              onClick={() => { setSymmetryMode(mode); setActivePanel(null); }}
-              className={`p-2 rounded text-left flex items-center gap-2 ${
-                symmetryMode.id === mode.id
-                  ? 'bg-purple-500 text-white'
-                  : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-              }`}
-            >
-              <span className="text-lg">{mode.icon}</span>
-              <span className="text-sm">{mode.name}</span>
+          {isPlaying && (
+            <button onClick={stopMusic} className="mt-2 w-full py-2 bg-red-500 text-white rounded-lg text-sm">
+              ⏹️ Stop Music
             </button>
-          ))}
+          )}
         </div>
       )}
 
-      {/* Main Canvas Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
-        <div className={`flex items-center justify-between px-3 py-1.5 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm z-10`}>
-          <div className="flex items-center gap-2">
-            {/* File menu */}
-            <div className="relative">
-              <button
-                onClick={() => setActivePanel(activePanel === 'file' ? null : 'file')}
-                className={`px-3 py-1 rounded text-sm ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-              >
-                File
-              </button>
-              {activePanel === 'file' && (
-                <div className={`absolute top-full left-0 mt-1 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl border ${darkMode ? 'border-gray-700' : 'border-gray-200'} py-1 min-w-[160px] z-50`}>
-                  <button onClick={() => { saveArtwork('png'); setActivePanel(null); }} className={`w-full px-3 py-1.5 text-left text-sm ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    💾 Save PNG <span className="text-gray-400 text-xs ml-2">⌘S</span>
-                  </button>
-                  <button onClick={() => { setShowExportModal(true); setActivePanel(null); }} className={`w-full px-3 py-1.5 text-left text-sm ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    📤 Export... <span className="text-gray-400 text-xs ml-2">⌘E</span>
-                  </button>
-                  <div className={`h-px my-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
-                  <button onClick={() => { clearDrawing(); setActivePanel(null); }} className={`w-full px-3 py-1.5 text-left text-sm text-red-500 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                    🗑️ Clear Canvas
-                  </button>
-                </div>
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar (desktop) */}
+        {!isMobile && (
+          <div className={`w-56 ${theme.panel} border-r ${theme.border} flex flex-col overflow-hidden`}>
+            {/* Tool Options */}
+            <div className={`p-3 border-b ${theme.border}`}>
+              {(activeTool === 'brush' || activeTool === 'eraser') && (
+                <>
+                  <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Brush Type</div>
+                  <div className="grid grid-cols-5 gap-1 mb-3">
+                    {brushTypes.map(brush => (
+                      <button
+                        key={brush.id}
+                        onClick={() => setBrushType(brush)}
+                        className={`p-1.5 rounded-lg text-base transition-all ${brushType.id === brush.id ? theme.active : theme.hover}`}
+                        title={brush.name}
+                      >
+                        {brush.icon}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`text-xs font-medium ${theme.textMuted} mb-1`}>Size: {brushSize}px</div>
+                  <input type="range" min="2" max="80" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-full accent-purple-500" />
+                  <div className={`text-xs font-medium ${theme.textMuted} mt-2 mb-1`}>Opacity: {Math.round(colorOpacity * 100)}%</div>
+                  <input type="range" min="10" max="100" value={colorOpacity * 100} onChange={e => setColorOpacity(e.target.value / 100)} className="w-full accent-purple-500" />
+                </>
               )}
+
+              {activeTool === 'shape' && (
+                <>
+                  <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Shape Type</div>
+                  <div className="grid grid-cols-4 gap-1 mb-3">
+                    {shapeTools.map(shape => (
+                      <button
+                        key={shape.id}
+                        onClick={() => setShapeType(shape)}
+                        className={`p-1.5 rounded-lg text-lg transition-all ${shapeType.id === shape.id ? theme.active : theme.hover}`}
+                        title={shape.name}
+                      >
+                        {shape.icon}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={shapeFill} onChange={e => setShapeFill(e.target.checked)} className="accent-purple-500" />
+                    Fill shape
+                  </label>
+                </>
+              )}
+
+              {/* Symmetry */}
+              <div className={`text-xs font-medium ${theme.textMuted} mt-3 mb-2`}>Symmetry</div>
+              <div className="grid grid-cols-4 gap-1">
+                {symmetryModes.map(mode => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setSymmetryMode(mode)}
+                    className={`p-1.5 rounded-lg text-sm transition-all ${symmetryMode.id === mode.id ? theme.active : theme.hover}`}
+                    title={mode.name}
+                  >
+                    {mode.icon}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Pictures menu */}
-            <div className="relative">
-              <button
-                onClick={() => setActivePanel(activePanel === 'pictures' ? null : 'pictures')}
-                className={`px-3 py-1 rounded text-sm flex items-center gap-1 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-              >
-                {drawing.icon} {drawing.name}
-              </button>
-              {activePanel === 'pictures' && (
-                <div className={`absolute top-full left-0 mt-1 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl border ${darkMode ? 'border-gray-700' : 'border-gray-200'} p-2 z-50`}>
-                  <div className="grid grid-cols-3 gap-1">
-                    {drawings.map((d, i) => (
-                      <button
-                        key={d.name}
-                        onClick={() => { setCurrentDrawing(i); setActivePanel(null); }}
-                        className={`p-2 rounded-lg text-center transition-all ${
-                          currentDrawing === i
-                            ? 'bg-purple-500 text-white'
-                            : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                        }`}
-                      >
-                        <div className="text-xl">{d.icon}</div>
-                        <div className="text-xs">{d.name}</div>
-                      </button>
+            {/* Colors */}
+            <div className={`p-3 border-b ${theme.border}`}>
+              <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Color</div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-lg border-2 border-gray-300 shadow-inner" style={{ backgroundColor: selectedColor, opacity: colorOpacity }} />
+                <input
+                  type="text"
+                  value={hexInput}
+                  onChange={e => handleHexChange(e.target.value)}
+                  className={`flex-1 px-2 py-1 text-sm rounded-lg border ${theme.border} ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}
+                  placeholder="#FFFFFF"
+                />
+              </div>
+              <div className="flex gap-1 mb-2 flex-wrap">
+                {Object.keys(colorPalettes).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => { setCurrentPalette(p); setSelectedColor(colorPalettes[p][0]); setHexInput(colorPalettes[p][0]); }}
+                    className={`px-2 py-0.5 rounded-full text-xs capitalize transition-all ${currentPalette === p ? theme.active : theme.hover}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-5 gap-1">
+                {colorPalettes[currentPalette].map(color => (
+                  <button
+                    key={color}
+                    onClick={() => { setSelectedColor(color); setHexInput(color); }}
+                    className={`w-8 h-8 rounded-lg transition-all ${selectedColor === color ? 'ring-2 ring-purple-500 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+              {recentColors.length > 0 && (
+                <div className="mt-2">
+                  <div className={`text-xs ${theme.textMuted} mb-1`}>Recent</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {recentColors.map((c, i) => (
+                      <button key={i} onClick={() => { setSelectedColor(c); setHexInput(c); }} className="w-6 h-6 rounded-md border border-gray-300" style={{ backgroundColor: c }} />
                     ))}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Music */}
-            <button
-              onClick={() => setActivePanel(activePanel === 'music' ? null : 'music')}
-              className={`px-2 py-1 rounded text-sm ${isPlaying ? 'bg-green-500 text-white' : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-            >
-              {isPlaying ? '🎵' : '🎶'}
-            </button>
-            {activePanel === 'music' && (
-              <div className={`absolute top-12 left-1/4 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl border ${darkMode ? 'border-gray-700' : 'border-gray-200'} p-3 z-50`}>
-                <div className="grid grid-cols-3 gap-2">
-                  {musicTracks.map((track) => (
-                    <button
-                      key={track.name}
-                      onClick={() => isPlaying && currentTrack?.name === track.name ? stopMusic() : playTrack(track)}
-                      className={`p-2 rounded-lg text-center transition-all ${
-                        currentTrack?.name === track.name
-                          ? 'bg-green-500 text-white'
-                          : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="text-xl">{track.emoji}</div>
-                      <div className="text-xs">{track.name}</div>
-                    </button>
-                  ))}
-                </div>
-                {isPlaying && (
-                  <button
-                    onClick={stopMusic}
-                    className="mt-2 w-full py-1.5 bg-red-500 text-white rounded-lg text-sm"
-                  >
-                    ⏹️ Stop
-                  </button>
-                )}
+            {/* Canvas Options */}
+            <div className={`p-3 border-b ${theme.border}`}>
+              <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Canvas</div>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} className="accent-purple-500" />
+                  Grid
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={snapToGrid} onChange={e => setSnapToGrid(e.target.checked)} className="accent-purple-500" />
+                  Snap
+                </label>
               </div>
-            )}
+              <div className={`text-xs ${theme.textMuted} mb-1`}>Background</div>
+              <div className="grid grid-cols-8 gap-1">
+                {backgroundColors.slice(0, 16).map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setBackgroundColor(color)}
+                    className={`w-5 h-5 rounded-md border transition-all ${backgroundColor === color ? 'ring-2 ring-purple-500' : 'border-gray-300'}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Clear */}
+            <div className="p-3">
+              <button onClick={clearDrawing} className="w-full py-2 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200 transition-all">
+                🗑️ Clear Canvas
+              </button>
+            </div>
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            {/* Undo/Redo */}
-            <button
-              onClick={undo}
-              disabled={historyIndex <= 0}
-              className={`p-1.5 rounded ${historyIndex > 0 ? 'hover:bg-gray-200' : 'opacity-40'} ${darkMode ? 'hover:bg-gray-700' : ''}`}
-              title="Undo (⌘Z)"
-            >
-              ↩️
-            </button>
-            <button
-              onClick={redo}
-              disabled={historyIndex >= history.length - 1}
-              className={`p-1.5 rounded ${historyIndex < history.length - 1 ? 'hover:bg-gray-200' : 'opacity-40'} ${darkMode ? 'hover:bg-gray-700' : ''}`}
-              title="Redo (⌘Y)"
-            >
-              ↪️
-            </button>
-
-            <div className={`w-px h-5 ${darkMode ? 'bg-gray-700' : 'bg-gray-300'}`} />
-
-            {/* Zoom controls */}
-            <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}>−</button>
-            <span className="text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}>+</button>
-            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className={`p-1 rounded text-xs ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}>Fit</button>
-          </div>
-        </div>
-
-        {/* Canvas Container */}
-        <div
-          ref={containerRef}
-          className="flex-1 flex items-center justify-center p-4 overflow-hidden"
-          style={{ cursor: isPanning ? 'grab' : activeTool === 'brush' ? 'crosshair' : 'default' }}
-          onClick={() => activePanel && !['file', 'pictures', 'music'].includes(activePanel) && setActivePanel(null)}
-        >
+        {/* Canvas Area */}
+        <div ref={containerRef} className="flex-1 flex items-center justify-center p-2 overflow-hidden" style={{ cursor: isPanning ? 'grab' : 'default' }}>
           <div
-            className="relative rounded-xl shadow-2xl overflow-hidden"
+            className="relative rounded-2xl shadow-2xl overflow-hidden transition-transform"
             style={{
               width: canvasWidth * zoom,
               height: canvasHeight * zoom,
-              transform: `translate(${pan.x * zoom}px, ${pan.y * zoom}px)`,
+              transform: `translate(${pan.x}px, ${pan.y}px)`,
             }}
           >
             {showCelebration && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-                <div className="text-center animate-bounce">
-                  <div className="text-5xl mb-1">🌟</div>
-                  <p className="text-xl text-purple-500 font-bold">Beautiful!</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-white/90 dark:bg-gray-900/90 z-20 animate-pulse">
+                <div className="text-center">
+                  <div className="text-6xl mb-2 animate-bounce">🌟</div>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">Beautiful!</p>
                 </div>
               </div>
             )}
@@ -1225,391 +1092,274 @@ export default function ColoringGame() {
               onTouchMove={handlePointerMove}
               onTouchEnd={handlePointerUp}
             >
-              {/* Grid overlay */}
+              {/* Grid */}
               {showGrid && (
-                <g opacity="0.3">
-                  {Array.from({ length: Math.ceil(420 / gridSize) }).map((_, i) => (
-                    <line key={`v${i}`} x1={i * gridSize} y1="0" x2={i * gridSize} y2="300" stroke="#ccc" strokeWidth="0.5" />
+                <g opacity="0.25">
+                  {Array.from({ length: Math.ceil(420 / gridSize) + 1 }).map((_, i) => (
+                    <line key={`v${i}`} x1={i * gridSize} y1="0" x2={i * gridSize} y2="300" stroke={darkMode ? '#666' : '#aaa'} strokeWidth="0.5" />
                   ))}
-                  {Array.from({ length: Math.ceil(300 / gridSize) }).map((_, i) => (
-                    <line key={`h${i}`} x1="0" y1={i * gridSize} x2="420" y2={i * gridSize} stroke="#ccc" strokeWidth="0.5" />
+                  {Array.from({ length: Math.ceil(300 / gridSize) + 1 }).map((_, i) => (
+                    <line key={`h${i}`} x1="0" y1={i * gridSize} x2="420" y2={i * gridSize} stroke={darkMode ? '#666' : '#aaa'} strokeWidth="0.5" />
                   ))}
                 </g>
               )}
 
               {/* Symmetry guides */}
               {symmetryMode.id !== 'none' && (
-                <g opacity="0.2" strokeDasharray="4,4">
+                <g opacity="0.15" strokeDasharray="4,4">
                   {(symmetryMode.id === 'horizontal' || symmetryMode.id === 'quad') && (
-                    <line x1="210" y1="0" x2="210" y2="300" stroke="#9333ea" strokeWidth="1" />
+                    <line x1="210" y1="0" x2="210" y2="300" stroke="#9333ea" strokeWidth="1.5" />
                   )}
                   {(symmetryMode.id === 'vertical' || symmetryMode.id === 'quad') && (
-                    <line x1="0" y1="150" x2="420" y2="150" stroke="#9333ea" strokeWidth="1" />
+                    <line x1="0" y1="150" x2="420" y2="150" stroke="#9333ea" strokeWidth="1.5" />
                   )}
-                  {symmetryMode.id === 'radial' && (
-                    <>
-                      {Array.from({ length: symmetryMode.spokes }).map((_, i) => {
-                        const angle = (2 * Math.PI * i) / symmetryMode.spokes;
-                        return (
-                          <line
-                            key={i}
-                            x1="210"
-                            y1="150"
-                            x2={210 + 200 * Math.cos(angle)}
-                            y2={150 + 200 * Math.sin(angle)}
-                            stroke="#9333ea"
-                            strokeWidth="1"
-                          />
-                        );
-                      })}
-                    </>
-                  )}
+                  {symmetryMode.spokes && Array.from({ length: symmetryMode.spokes }).map((_, i) => {
+                    const angle = (2 * Math.PI * i) / symmetryMode.spokes;
+                    return <line key={i} x1="210" y1="150" x2={210 + 200 * Math.cos(angle)} y2={150 + 200 * Math.sin(angle)} stroke="#9333ea" strokeWidth="1" />;
+                  })}
                 </g>
               )}
 
-              {/* Layer paths */}
+              {/* Layers */}
               {layers.filter(l => l.visible).map(layer => (
                 <g key={layer.id} opacity={layer.opacity}>
-                  {layer.paths.map((path, i) => {
-                    if (path.isShape) {
-                      return (
-                        <path
-                          key={path.id || i}
-                          d={shapeToPath(path)}
-                          fill={path.fill ? path.color : 'none'}
-                          stroke={path.color}
-                          strokeWidth={path.strokeWidth}
-                          opacity={path.opacity}
-                        />
-                      );
-                    }
-                    return (
-                      <path
-                        key={path.id || i}
-                        d={pointsToPath(path.points)}
-                        stroke={path.color}
-                        strokeWidth={path.size}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        fill="none"
-                        opacity={path.opacity}
-                        style={{ filter: path.brushType?.softness > 0 ? `blur(${path.brushType.softness}px)` : 'none' }}
-                      />
-                    );
-                  })}
+                  {layer.paths.map((path, i) => path.isShape ? (
+                    <path key={path.id || i} d={shapeToPath(path)} fill={path.fill ? path.color : 'none'} stroke={path.color} strokeWidth={path.strokeWidth} opacity={path.opacity} />
+                  ) : (
+                    <path
+                      key={path.id || i}
+                      d={smoothPath(path.points)}
+                      stroke={path.color}
+                      strokeWidth={path.size}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                      opacity={path.opacity}
+                      style={{ filter: path.brushType?.softness > 0 ? `blur(${path.brushType.softness}px)` : 'none' }}
+                    />
+                  ))}
                 </g>
               ))}
 
-              {/* Current drawing path */}
-              {currentPath && currentPath.points.length > 1 && (
+              {/* Current path preview */}
+              {currentPath && currentPath.map((path, i) => path.points.length > 1 && (
                 <path
-                  d={pointsToPath(currentPath.points)}
-                  stroke={currentPath.color}
-                  strokeWidth={currentPath.size}
+                  key={i}
+                  d={smoothPath(path.points)}
+                  stroke={path.color}
+                  strokeWidth={path.size}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   fill="none"
-                  opacity={currentPath.opacity}
+                  opacity={path.opacity}
                 />
-              )}
+              ))}
 
               {/* Current shape preview */}
               {currentShape && (
-                <path
-                  d={shapeToPath(currentShape)}
-                  fill={currentShape.fill ? currentShape.color : 'none'}
-                  stroke={currentShape.color}
-                  strokeWidth={currentShape.strokeWidth}
-                  opacity={currentShape.opacity * 0.7}
-                  strokeDasharray="4,4"
-                />
+                <path d={shapeToPath(currentShape)} fill={currentShape.fill ? currentShape.color : 'none'} stroke={currentShape.color} strokeWidth={currentShape.strokeWidth} opacity={0.6} strokeDasharray="4,4" />
               )}
 
-              {/* Pre-made drawing paths */}
-              {drawing.paths.map((path) => {
+              {/* Pre-made drawings */}
+              {drawing.paths.map(path => {
                 const fillColor = filledColors[`${currentDrawing}-${path.id}`] || 'transparent';
-                const isStroke = path.id.includes('antenna') || (path.id.includes('tail') && drawing.name === 'Cat');
-
                 return (
                   <path
                     key={path.id}
                     d={path.d}
-                    fill={isStroke ? 'none' : fillColor}
-                    stroke={isStroke ? (filledColors[`${currentDrawing}-${path.id}`] || '#D1D5DB') : '#9CA3AF'}
-                    strokeWidth={isStroke ? 4 : 2}
+                    fill={fillColor}
+                    stroke={darkMode ? '#666' : '#9CA3AF'}
+                    strokeWidth={2}
                     strokeLinecap="round"
                     className="transition-colors duration-200"
                     onClick={() => handlePathClick(path.id)}
-                    style={{
-                      cursor: activeTool === 'fill' ? 'pointer' : 'default',
-                      pointerEvents: activeTool === 'fill' ? 'auto' : 'none'
-                    }}
+                    style={{ cursor: activeTool === 'fill' ? 'pointer' : 'default', pointerEvents: activeTool === 'fill' ? 'auto' : 'none' }}
                   />
                 );
               })}
-
-              {/* Selection box */}
-              {selectionBox && (
-                <rect
-                  x={Math.min(selectionBox.startX, selectionBox.endX)}
-                  y={Math.min(selectionBox.startY, selectionBox.endY)}
-                  width={Math.abs(selectionBox.endX - selectionBox.startX)}
-                  height={Math.abs(selectionBox.endY - selectionBox.startY)}
-                  fill="rgba(147, 51, 234, 0.1)"
-                  stroke="#9333ea"
-                  strokeWidth="1"
-                  strokeDasharray="4,4"
-                />
-              )}
             </svg>
           </div>
         </div>
 
-        {/* Bottom Status Bar */}
-        <div className={`flex items-center justify-between px-3 py-1 text-xs ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>
-          <div className="flex items-center gap-3">
-            <span>{drawing.icon} {drawing.name}</span>
-            <span>|</span>
-            <span>Layer: {getActiveLayer()?.name}</span>
-            {symmetryMode.id !== 'none' && <span className="text-purple-500">Symmetry: {symmetryMode.name}</span>}
+        {/* Right Sidebar - Layers (desktop) */}
+        {!isMobile && (
+          <div className={`w-56 ${theme.panel} border-l ${theme.border} flex flex-col overflow-hidden`}>
+            <div className={`flex items-center justify-between p-2 border-b ${theme.border}`}>
+              <span className={`text-xs font-medium ${theme.textMuted}`}>Layers</span>
+              <button onClick={addLayer} className={`p-1 rounded ${theme.hover} text-sm`} title="Add layer">➕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {[...layers].reverse().map(layer => (
+                <div
+                  key={layer.id}
+                  draggable
+                  onDragStart={() => handleLayerDragStart(layer.id)}
+                  onDragOver={handleLayerDragOver}
+                  onDrop={() => handleLayerDrop(layer.id)}
+                  onClick={() => setActiveLayerId(layer.id)}
+                  className={`flex items-center gap-2 px-2 py-2 cursor-pointer border-b ${theme.border} transition-all ${
+                    activeLayerId === layer.id ? 'bg-purple-100 dark:bg-purple-900/40' : theme.hover
+                  } ${draggedLayerId === layer.id ? 'opacity-50' : ''}`}
+                >
+                  <button onClick={e => { e.stopPropagation(); toggleLayerVisibility(layer.id); }} className={layer.visible ? '' : 'opacity-30'}>
+                    👁️
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); toggleLayerLock(layer.id); }}>
+                    {layer.locked ? '🔒' : '🔓'}
+                  </button>
+                  <span className={`flex-1 text-sm truncate ${!layer.visible ? 'opacity-50' : ''}`}>{layer.name}</span>
+                  <button onClick={e => { e.stopPropagation(); duplicateLayer(layer.id); }} className="opacity-50 hover:opacity-100 text-xs">📋</button>
+                  {layers.length > 1 && (
+                    <button onClick={e => { e.stopPropagation(); deleteLayer(layer.id); }} className="opacity-50 hover:opacity-100 text-xs text-red-500">🗑️</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {getActiveLayer() && (
+              <div className={`p-3 border-t ${theme.border}`}>
+                <div className={`text-xs ${theme.textMuted} mb-1`}>Layer Opacity</div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={getActiveLayer().opacity * 100}
+                  onChange={e => setLayerOpacity(activeLayerId, e.target.value / 100)}
+                  className="w-full accent-purple-500"
+                />
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-3">
-            <span>{Math.round(zoom * 100)}%</span>
-            {history.length > 0 && <span>History: {historyIndex + 1}/{history.length}</span>}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Right Panel - Layers & Colors */}
-      <div className={`w-64 flex flex-col ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-l shadow-lg z-10 hidden md:flex`}>
-        {/* Color Section */}
-        <div className={`p-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="text-xs font-medium text-gray-500 mb-2">Color</div>
-
-          {/* Current color + hex */}
-          <div className="flex items-center gap-2 mb-2">
-            <div
-              className="w-10 h-10 rounded-lg border-2 border-gray-300 shadow-inner"
-              style={{ backgroundColor: selectedColor, opacity: colorOpacity }}
-            />
-            <input
-              type="text"
-              value={hexInput}
-              onChange={(e) => handleHexChange(e.target.value)}
-              className={`flex-1 px-2 py-1 text-sm rounded border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}
-              placeholder="#FFFFFF"
-            />
+      {/* Mobile Tools Panel */}
+      {isMobile && showMobileTools && (
+        <div className={`absolute bottom-0 left-0 right-0 ${theme.panel} rounded-t-2xl shadow-2xl p-4 z-30 max-h-[70vh] overflow-y-auto`}>
+          <div className="flex justify-center mb-2">
+            <div className="w-12 h-1 bg-gray-300 rounded-full" />
           </div>
 
-          {/* Palette selector */}
-          <div className="flex gap-1 mb-2 flex-wrap">
-            {Object.keys(colorPalettes).map((palette) => (
+          {/* Tools */}
+          <div className="flex gap-2 mb-4 justify-center">
+            {[
+              { id: 'brush', icon: '🖌️' },
+              { id: 'eraser', icon: '🧽' },
+              { id: 'fill', icon: '🪣' },
+              { id: 'shape', icon: '⬜' },
+            ].map(tool => (
               <button
-                key={palette}
-                onClick={() => {
-                  setCurrentPalette(palette);
-                  setSelectedColor(colorPalettes[palette][0]);
-                  setHexInput(colorPalettes[palette][0]);
-                }}
-                className={`px-2 py-0.5 rounded text-xs capitalize ${
-                  currentPalette === palette
-                    ? 'bg-purple-500 text-white'
-                    : darkMode ? 'bg-gray-700' : 'bg-gray-100'
-                }`}
+                key={tool.id}
+                onClick={() => setActiveTool(tool.id)}
+                className={`w-12 h-12 rounded-xl text-xl transition-all ${activeTool === tool.id ? theme.active : theme.hover}`}
               >
-                {palette}
+                {tool.icon}
               </button>
             ))}
           </div>
 
-          {/* Color swatches */}
-          <div className="grid grid-cols-8 gap-1">
-            {colorPalettes[currentPalette].map((color) => (
-              <button
-                key={color}
-                onClick={() => { setSelectedColor(color); setHexInput(color); }}
-                className={`w-6 h-6 rounded-md transition-all ${
-                  selectedColor === color ? 'ring-2 ring-purple-500 scale-110' : 'hover:scale-105'
-                }`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
-
-          {/* Recent colors */}
-          {recentColors.length > 0 && (
-            <div className="mt-2">
-              <div className="text-xs text-gray-400 mb-1">Recent</div>
-              <div className="flex gap-1">
-                {recentColors.map((color, i) => (
+          {/* Brush options */}
+          {(activeTool === 'brush' || activeTool === 'eraser') && (
+            <div className="mb-4">
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                {brushTypes.slice(0, 5).map(brush => (
                   <button
-                    key={i}
-                    onClick={() => { setSelectedColor(color); setHexInput(color); }}
-                    className="w-5 h-5 rounded border border-gray-300"
-                    style={{ backgroundColor: color }}
-                  />
+                    key={brush.id}
+                    onClick={() => setBrushType(brush)}
+                    className={`p-2 rounded-lg text-lg ${brushType.id === brush.id ? theme.active : theme.hover}`}
+                  >
+                    {brush.icon}
+                  </button>
                 ))}
               </div>
+              <div className={`text-xs ${theme.textMuted} mb-1`}>Size: {brushSize}px</div>
+              <input type="range" min="2" max="60" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-full accent-purple-500" />
             </div>
           )}
-        </div>
 
-        {/* Background colors */}
-        <div className={`p-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="text-xs font-medium text-gray-500 mb-2">Background</div>
-          <div className="grid grid-cols-6 gap-1">
-            {backgroundColors.map((color) => (
-              <button
-                key={color}
-                onClick={() => setBackgroundColor(color)}
-                className={`w-6 h-6 rounded-md border transition-all ${
-                  backgroundColor === color
-                    ? 'ring-2 ring-purple-500'
-                    : 'border-gray-300'
-                }`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Layers Section */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className={`flex items-center justify-between p-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            <span className="text-xs font-medium text-gray-500">Layers</span>
-            <div className="flex gap-1">
-              <button onClick={addLayer} className="p-1 rounded hover:bg-gray-200 text-sm" title="Add Layer">➕</button>
+          {/* Colors */}
+          <div>
+            <div className="flex gap-1 mb-2 flex-wrap justify-center">
+              {Object.keys(colorPalettes).slice(0, 4).map(p => (
+                <button
+                  key={p}
+                  onClick={() => { setCurrentPalette(p); setSelectedColor(colorPalettes[p][0]); }}
+                  className={`px-3 py-1 rounded-full text-xs capitalize ${currentPalette === p ? theme.active : theme.hover}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-10 gap-2">
+              {colorPalettes[currentPalette].map(color => (
+                <button
+                  key={color}
+                  onClick={() => { setSelectedColor(color); setHexInput(color); }}
+                  className={`w-8 h-8 rounded-full transition-all ${selectedColor === color ? 'ring-2 ring-purple-500 ring-offset-2 scale-110' : ''}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {[...layers].reverse().map((layer, idx) => (
-              <div
-                key={layer.id}
-                onClick={() => setActiveLayerId(layer.id)}
-                className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer border-b ${
-                  activeLayerId === layer.id
-                    ? 'bg-purple-100 dark:bg-purple-900/30'
-                    : darkMode ? 'hover:bg-gray-700 border-gray-700' : 'hover:bg-gray-50 border-gray-100'
-                }`}
-              >
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleLayerVisibility(layer.id); }}
-                  className={`text-sm ${layer.visible ? '' : 'opacity-30'}`}
-                >
-                  {layer.visible ? '👁️' : '👁️‍🗨️'}
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleLayerLock(layer.id); }}
-                  className="text-sm"
-                >
-                  {layer.locked ? '🔒' : '🔓'}
-                </button>
-                <span className={`flex-1 text-sm truncate ${!layer.visible ? 'opacity-50' : ''}`}>
-                  {layer.name}
-                </span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); duplicateLayer(layer.id); }}
-                    className="text-xs p-0.5 hover:bg-gray-200 rounded"
-                    title="Duplicate"
-                  >
-                    📋
-                  </button>
-                  {layers.length > 1 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteLayer(layer.id); }}
-                      className="text-xs p-0.5 hover:bg-red-100 rounded text-red-500"
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <button onClick={() => setShowMobileTools(false)} className={`w-full mt-4 py-2 ${theme.hover} rounded-lg text-sm`}>
+            Close
+          </button>
+        </div>
+      )}
 
-          {/* Layer properties */}
-          {getActiveLayer() && (
-            <div className={`p-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <div className="text-xs text-gray-500 mb-1">Layer Opacity</div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={getActiveLayer().opacity * 100}
-                onChange={(e) => setLayerOpacity(activeLayerId, e.target.value / 100)}
-                className="w-full accent-purple-500"
-              />
-            </div>
-          )}
+      {/* Status Bar */}
+      <div className={`flex items-center justify-between px-3 py-1 text-xs ${theme.panel} ${theme.textMuted} border-t ${theme.border}`}>
+        <div className="flex items-center gap-3">
+          <span>{drawing.icon} {drawing.name}</span>
+          <span>•</span>
+          <span>Layer: {getActiveLayer()?.name}</span>
+          {symmetryMode.id !== 'none' && <span className="text-purple-500">• Symmetry: {symmetryMode.name}</span>}
+        </div>
+        <div className="flex items-center gap-3">
+          {history.length > 0 && <span>History: {historyIndex + 1}/{history.length}</span>}
+          <span>{Math.round(zoom * 100)}%</span>
         </div>
       </div>
 
       {/* Export Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowExportModal(false)}>
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl`} onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Export Artwork</h3>
-
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowExportModal(false)}>
+          <div className={`${theme.panel} rounded-2xl p-6 max-w-sm w-full shadow-2xl`} onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">Export Artwork</h3>
             <div className="mb-4">
-              <label className="text-sm text-gray-500 block mb-1">Format</label>
+              <div className={`text-sm ${theme.textMuted} mb-2`}>Format</div>
               <div className="flex gap-2">
-                {['png', 'jpg', 'svg'].map(fmt => (
+                {['png', 'jpg', 'svg'].map(f => (
                   <button
-                    key={fmt}
-                    onClick={() => setExportFormat(fmt)}
-                    className={`px-4 py-2 rounded-lg uppercase text-sm ${
-                      exportFormat === fmt
-                        ? 'bg-purple-500 text-white'
-                        : darkMode ? 'bg-gray-700' : 'bg-gray-100'
-                    }`}
+                    key={f}
+                    onClick={() => setExportFormat(f)}
+                    className={`flex-1 py-2 rounded-lg uppercase text-sm font-medium transition-all ${exportFormat === f ? theme.active : theme.hover}`}
                   >
-                    {fmt}
+                    {f}
                   </button>
                 ))}
               </div>
             </div>
-
             {exportFormat !== 'svg' && (
               <div className="mb-4">
-                <label className="text-sm text-gray-500 block mb-1">Quality</label>
+                <div className={`text-sm ${theme.textMuted} mb-2`}>Quality</div>
                 <div className="flex gap-2">
-                  {[
-                    { value: 0.5, label: 'Low' },
-                    { value: 1, label: 'Medium' },
-                    { value: 2, label: 'High' },
-                  ].map(q => (
+                  {[{ v: 1, l: 'Low' }, { v: 2, l: 'Medium' }, { v: 4, l: 'High' }].map(q => (
                     <button
-                      key={q.value}
-                      onClick={() => setExportQuality(q.value)}
-                      className={`px-4 py-2 rounded-lg text-sm ${
-                        exportQuality === q.value
-                          ? 'bg-purple-500 text-white'
-                          : darkMode ? 'bg-gray-700' : 'bg-gray-100'
-                      }`}
+                      key={q.v}
+                      onClick={() => setExportQuality(q.v)}
+                      className={`flex-1 py-2 rounded-lg text-sm transition-all ${exportQuality === q.v ? theme.active : theme.hover}`}
                     >
-                      {q.label}
+                      {q.l}
                     </button>
                   ))}
                 </div>
               </div>
             )}
-
             <div className="flex gap-2 mt-6">
-              <button
-                onClick={() => setShowExportModal(false)}
-                className={`flex-1 py-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => saveArtwork(exportFormat, exportQuality)}
-                disabled={isSaving}
-                className="flex-1 py-2 bg-purple-500 text-white rounded-lg disabled:opacity-50"
-              >
-                {isSaving ? 'Exporting...' : 'Export'}
+              <button onClick={() => setShowExportModal(false)} className={`flex-1 py-3 rounded-xl ${theme.hover} font-medium`}>Cancel</button>
+              <button onClick={() => saveArtwork()} disabled={isSaving} className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium disabled:opacity-50">
+                {isSaving ? 'Saving...' : 'Export'}
               </button>
             </div>
           </div>
@@ -1617,17 +1367,12 @@ export default function ColoringGame() {
       )}
 
       {/* Music indicator */}
-      {isPlaying && (
-        <div className={`fixed bottom-4 right-4 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-full px-4 py-2 shadow-lg flex items-center gap-2 z-30`}>
+      {isPlaying && !activePanel && (
+        <div className={`fixed bottom-16 right-4 ${theme.panel} rounded-full px-4 py-2 shadow-lg flex items-center gap-2 z-20`}>
           <span className="animate-pulse">{currentTrack?.emoji}</span>
           <span className="text-sm">{currentTrack?.name}</span>
-          <button onClick={stopMusic} className="text-red-500 hover:text-red-600">⏹️</button>
+          <button onClick={stopMusic} className="text-red-500">⏹️</button>
         </div>
-      )}
-
-      {/* Click outside to close panels */}
-      {activePanel && (
-        <div className="fixed inset-0 z-40" onClick={() => setActivePanel(null)} />
       )}
     </div>
   );
