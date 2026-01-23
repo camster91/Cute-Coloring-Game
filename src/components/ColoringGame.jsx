@@ -920,6 +920,12 @@ export default function ColoringGame() {
   // Brush Stabilization
   const [brushStabilization, setBrushStabilization] = useState(0); // 0-4 levels
 
+  // Lazy Brush (string/rope mode for precision)
+  const [lazyBrushEnabled, setLazyBrushEnabled] = useState(false);
+  const [lazyBrushRadius, setLazyBrushRadius] = useState(30); // pixels
+  const lazyBrushPosRef = useRef({ x: 0, y: 0 }); // Current brush position
+  const [lazyBrushIndicator, setLazyBrushIndicator] = useState(null); // Visual indicator
+
   // Color Harmony
   const [showColorHarmony, setShowColorHarmony] = useState(false);
   const [selectedHarmony, setSelectedHarmony] = useState('complementary');
@@ -1309,6 +1315,12 @@ export default function ColoringGame() {
       lastPointRef.current = pos;
       lastTimeRef.current = Date.now();
 
+      // Initialize lazy brush position
+      if (lazyBrushEnabled) {
+        lazyBrushPosRef.current = { ...pos };
+        setLazyBrushIndicator({ cursor: pos, brush: pos });
+      }
+
       const initialPaths = generateSymmetricPoints(pos, symmetryMode).map((p, i) => ({
         id: `path-${Date.now()}-${i}`,
         color: activeTool === 'eraser' ? backgroundColor : selectedColor,
@@ -1353,19 +1365,48 @@ export default function ColoringGame() {
     if ((activeTool === 'brush' || activeTool === 'eraser') && currentPath) {
       e.preventDefault();
 
+      // Calculate actual drawing position (lazy brush or direct)
+      let drawPos = pos;
+
+      if (lazyBrushEnabled) {
+        const lazyPos = lazyBrushPosRef.current;
+        const dx = pos.x - lazyPos.x;
+        const dy = pos.y - lazyPos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Only move brush if cursor is outside the lazy radius
+        if (distance > lazyBrushRadius) {
+          // Calculate how far to move toward cursor
+          const moveDistance = distance - lazyBrushRadius;
+          const angle = Math.atan2(dy, dx);
+          drawPos = {
+            x: lazyPos.x + Math.cos(angle) * moveDistance,
+            y: lazyPos.y + Math.sin(angle) * moveDistance
+          };
+          lazyBrushPosRef.current = drawPos;
+        } else {
+          // Cursor within radius, don't move brush
+          setLazyBrushIndicator({ cursor: pos, brush: lazyPos });
+          return;
+        }
+
+        // Update indicator
+        setLazyBrushIndicator({ cursor: pos, brush: drawPos });
+      }
+
       // Calculate speed-based size variation
       const now = Date.now();
       const timeDelta = now - lastTimeRef.current;
       const lastPos = lastPointRef.current;
 
       if (lastPos && timeDelta > 0) {
-        const distance = Math.sqrt(Math.pow(pos.x - lastPos.x, 2) + Math.pow(pos.y - lastPos.y, 2));
+        const distance = Math.sqrt(Math.pow(drawPos.x - lastPos.x, 2) + Math.pow(drawPos.y - lastPos.y, 2));
         const speed = distance / timeDelta;
 
         // Vary size based on speed (faster = thinner for calligraphy effect)
         const speedFactor = Math.max(brushType.minSize, Math.min(brushType.maxSize, 1 - speed * 0.5));
 
-        const symmetricPoints = generateSymmetricPoints(pos, symmetryMode);
+        const symmetricPoints = generateSymmetricPoints(drawPos, symmetryMode);
 
         setCurrentPath(prev => prev.map((path, i) => ({
           ...path,
@@ -1373,7 +1414,7 @@ export default function ColoringGame() {
         })));
       }
 
-      lastPointRef.current = pos;
+      lastPointRef.current = drawPos;
       lastTimeRef.current = now;
     } else if (activeTool === 'shape' && currentShape) {
       e.preventDefault();
@@ -1394,6 +1435,9 @@ export default function ColoringGame() {
   const handlePointerUp = useCallback(() => {
     if (!isDrawing) return;
     setIsDrawing(false);
+
+    // Clear lazy brush indicator
+    setLazyBrushIndicator(null);
 
     if ((activeTool === 'brush' || activeTool === 'eraser') && currentPath) {
       const validPaths = currentPath.filter(p => p.points.length > 1);
@@ -1993,6 +2037,33 @@ export default function ColoringGame() {
 
                   <div className={`text-xs font-medium ${theme.textMuted} mt-2 mb-1`}>Stabilization: {['Off', 'Low', 'Medium', 'High', 'Max'][brushStabilization]}</div>
                   <input type="range" min="0" max="4" value={brushStabilization} onChange={e => setBrushStabilization(Number(e.target.value))} className="w-full accent-purple-500" />
+
+                  {/* Lazy Brush */}
+                  <div className={`mt-3 pt-2 border-t ${theme.border}`}>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={lazyBrushEnabled}
+                        onChange={(e) => setLazyBrushEnabled(e.target.checked)}
+                        className="accent-purple-500"
+                      />
+                      <span>Lazy Brush</span>
+                      <span className="text-xs opacity-50" title="Brush follows cursor with delay for precision">🎯</span>
+                    </label>
+                    {lazyBrushEnabled && (
+                      <>
+                        <div className={`text-xs ${theme.textMuted} mt-2 mb-1`}>String Length: {lazyBrushRadius}px</div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="80"
+                          value={lazyBrushRadius}
+                          onChange={e => setLazyBrushRadius(Number(e.target.value))}
+                          className="w-full accent-purple-500"
+                        />
+                      </>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -2244,6 +2315,52 @@ export default function ColoringGame() {
                   opacity={path.opacity}
                 />
               ))}
+
+              {/* Lazy brush indicator */}
+              {lazyBrushEnabled && lazyBrushIndicator && isDrawing && (
+                <g opacity="0.6" pointerEvents="none">
+                  {/* String line */}
+                  <line
+                    x1={lazyBrushIndicator.cursor.x}
+                    y1={lazyBrushIndicator.cursor.y}
+                    x2={lazyBrushIndicator.brush.x}
+                    y2={lazyBrushIndicator.brush.y}
+                    stroke="#9333ea"
+                    strokeWidth="1"
+                    strokeDasharray="3,3"
+                  />
+                  {/* Cursor circle */}
+                  <circle
+                    cx={lazyBrushIndicator.cursor.x}
+                    cy={lazyBrushIndicator.cursor.y}
+                    r="4"
+                    fill="none"
+                    stroke="#9333ea"
+                    strokeWidth="1"
+                  />
+                  {/* Brush position circle */}
+                  <circle
+                    cx={lazyBrushIndicator.brush.x}
+                    cy={lazyBrushIndicator.brush.y}
+                    r={brushSize / 2}
+                    fill={selectedColor}
+                    opacity="0.5"
+                    stroke="#9333ea"
+                    strokeWidth="1"
+                  />
+                  {/* Lazy radius circle (shows string length) */}
+                  <circle
+                    cx={lazyBrushIndicator.brush.x}
+                    cy={lazyBrushIndicator.brush.y}
+                    r={lazyBrushRadius}
+                    fill="none"
+                    stroke="#9333ea"
+                    strokeWidth="0.5"
+                    strokeDasharray="2,4"
+                    opacity="0.3"
+                  />
+                </g>
+              )}
 
               {/* Current shape preview */}
               {currentShape && (
