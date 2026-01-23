@@ -6,3 +6,4 @@ export { default as ColorSwatch } from './ColorSwatch';
 export { default as Modal } from './Modal';
 export { default as Sidebar } from './Sidebar';
 export { default as BottomSheet } from './BottomSheet';
+export { default as Skeleton, PanelSkeleton, LayerSkeleton } from './Skeleton';
