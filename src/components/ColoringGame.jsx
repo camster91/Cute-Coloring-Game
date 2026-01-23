@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
+// Import modular components
+import { TabPanel, BottomSheet } from './ui';
+import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel } from './panels';
+import { StatusBar } from './toolbar';
+import { GridOverlay, LazyBrushIndicator } from './canvas';
+import { useTouchGestures } from './hooks';
+
 // ============ CONSTANTS ============
 
 const colorPalettes = {
@@ -868,8 +875,12 @@ export default function ColoringGame() {
   const [colorOpacity, setColorOpacity] = useState(1);
   const [filledColors, setFilledColors] = useState({});
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => {
+    const saved = localStorage.getItem('calmDrawing_zoom');
+    return saved ? parseFloat(saved) : 1;
+  });
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [hasInitializedZoom, setHasInitializedZoom] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Tool state
@@ -897,6 +908,8 @@ export default function ColoringGame() {
 
   // UI state
   const [activePanel, setActivePanel] = useState(null);
+  const [leftSidebarTab, setLeftSidebarTab] = useState('tools');
+  const [rightSidebarTab, setRightSidebarTab] = useState('layers');
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(20);
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -962,14 +975,27 @@ export default function ColoringGame() {
   const [exportFormat, setExportFormat] = useState('png');
   const [exportQuality, setExportQuality] = useState(2);
 
-  // Window size
+  // Window size and responsive breakpoints
   const [windowSize, setWindowSize] = useState({ width: 800, height: 600 });
-  const isMobile = windowSize.width < 768;
+  const isMobile = windowSize.width < 640;
+  const isTablet = windowSize.width >= 640 && windowSize.width < 1024;
+  const isDesktop = windowSize.width >= 1024;
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
   const { startSound, stopSound, setVolume: setAmbientVolume, stopAllSounds } = useAmbientSounds();
+
+  // Touch gestures for mobile (pinch-to-zoom, two-finger pan)
+  useTouchGestures({
+    targetRef: containerRef,
+    onZoom: (delta) => {
+      setZoom(z => Math.max(0.25, Math.min(4, z + delta)));
+    },
+    onPan: (delta) => {
+      setPan(p => ({ x: p.x + delta.x, y: p.y + delta.y }));
+    },
+  });
 
   // ============ EFFECTS ============
 
@@ -981,6 +1007,45 @@ export default function ColoringGame() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // QW2: Save zoom to localStorage when it changes
+  useEffect(() => {
+    if (hasInitializedZoom) {
+      localStorage.setItem('calmDrawing_zoom', zoom.toString());
+    }
+  }, [zoom, hasInitializedZoom]);
+
+  // QW4: Calculate and set optimal zoom on first load
+  useEffect(() => {
+    if (hasInitializedZoom) return;
+
+    // Only auto-fit if no saved zoom preference
+    const savedZoom = localStorage.getItem('calmDrawing_zoom');
+    if (savedZoom) {
+      setHasInitializedZoom(true);
+      return;
+    }
+
+    // Calculate optimal zoom to fit canvas
+    const sidebarW = window.innerWidth < 768 ? 0 : (focusMode ? 0 : 224 * 2);
+    const headerH = focusMode ? 0 : 52;
+    const statusH = focusMode ? 0 : 28;
+    const pad = window.innerWidth < 768 ? 8 : 16;
+
+    const availW = window.innerWidth - sidebarW - pad * 2;
+    const availH = window.innerHeight - headerH - statusH - pad * 2;
+
+    const baseWidth = 420;
+    const baseHeight = 300;
+
+    // Calculate zoom to fit with some margin (90% of available space)
+    const zoomToFitW = (availW * 0.9) / baseWidth;
+    const zoomToFitH = (availH * 0.9) / baseHeight;
+    const optimalZoom = Math.min(zoomToFitW, zoomToFitH, 2); // Cap at 2x
+
+    setZoom(Math.max(0.5, Math.round(optimalZoom * 4) / 4)); // Round to nearest 0.25
+    setHasInitializedZoom(true);
+  }, [focusMode, hasInitializedZoom]);
 
   // Session timer
   useEffect(() => {
@@ -1531,6 +1596,30 @@ export default function ColoringGame() {
     }
   };
 
+  // ============ VIEW CONTROLS ============
+
+  // QW3: Fit-to-Screen function
+  const fitToScreen = useCallback(() => {
+    const sidebarW = isMobile ? 0 : (focusMode ? 0 : 224 * 2);
+    const headerH = focusMode ? 0 : 52;
+    const statusH = focusMode ? 0 : 28;
+    const pad = isMobile ? 8 : 16;
+
+    const availW = windowSize.width - sidebarW - pad * 2;
+    const availH = windowSize.height - headerH - statusH - pad * 2;
+
+    const baseWidth = 420;
+    const baseHeight = 300;
+
+    // Calculate zoom to fit with some margin (95% of available space)
+    const zoomToFitW = (availW * 0.95) / baseWidth;
+    const zoomToFitH = (availH * 0.95) / baseHeight;
+    const optimalZoom = Math.min(zoomToFitW, zoomToFitH, 4); // Cap at 4x
+
+    setZoom(Math.max(0.25, Math.round(optimalZoom * 4) / 4)); // Round to nearest 0.25
+    setPan({ x: 0, y: 0 }); // Center the canvas
+  }, [isMobile, focusMode, windowSize]);
+
   // ============ EXPORT ============
 
   const saveArtwork = async (format = exportFormat, quality = exportQuality) => {
@@ -1594,8 +1683,30 @@ export default function ColoringGame() {
   // ============ RENDER ============
 
   const drawing = drawings[currentDrawing];
-  const canvasWidth = isMobile ? windowSize.width - 16 : Math.min(windowSize.width - 380, 900);
-  const canvasHeight = canvasWidth * (300 / 420);
+
+  // Calculate canvas size to fill available space
+  // Mobile: no sidebars, Tablet: one sidebar (224px), Desktop: two sidebars (448px)
+  const sidebarWidth = isMobile ? 0 : (focusMode ? 0 : (isTablet ? 224 : 224 * 2));
+  const headerHeight = focusMode ? 0 : (isMobile ? 44 : 52);
+  const statusHeight = focusMode ? 0 : (isMobile ? 0 : 28);
+  const padding = isMobile ? 4 : (isTablet ? 8 : 16);
+
+  const availableWidth = windowSize.width - sidebarWidth - padding * 2;
+  const availableHeight = windowSize.height - headerHeight - statusHeight - padding * 2;
+
+  // Maintain 420:300 aspect ratio while filling space
+  const aspectRatio = 420 / 300;
+  let canvasWidth, canvasHeight;
+
+  if (availableWidth / availableHeight > aspectRatio) {
+    // Height is limiting factor
+    canvasHeight = Math.max(200, availableHeight);
+    canvasWidth = canvasHeight * aspectRatio;
+  } else {
+    // Width is limiting factor
+    canvasWidth = Math.max(280, availableWidth);
+    canvasHeight = canvasWidth / aspectRatio;
+  }
 
   const theme = {
     bg: darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50',
@@ -1725,9 +1836,11 @@ export default function ColoringGame() {
 
           <div className={`w-px h-6 mx-1 ${theme.border}`} />
 
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`}>−</button>
+          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom Out">−</button>
           <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`}>+</button>
+          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom In">+</button>
+          <button onClick={fitToScreen} className={`p-1 rounded ${theme.hover} text-xs`} title="Fit to Screen">⛶</button>
+          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className={`p-1 rounded ${theme.hover} text-xs`} title="Reset View (100%)">1:1</button>
 
           <div className={`w-px h-6 mx-1 ${theme.border}`} />
 
@@ -2010,214 +2123,133 @@ export default function ColoringGame() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (desktop) - hidden in focus mode */}
+        {/* Left Sidebar (tablet/desktop) - hidden in focus mode */}
         {!isMobile && !focusMode && (
           <div className={`w-56 ${theme.panel} border-r ${theme.border} flex flex-col overflow-hidden`}>
-            {/* Tool Options */}
-            <div className={`p-3 border-b ${theme.border}`}>
-              {(activeTool === 'brush' || activeTool === 'eraser') && (
-                <>
-                  <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Brush Type</div>
-                  <div className="grid grid-cols-5 gap-1 mb-3">
-                    {brushTypes.map(brush => (
-                      <button
-                        key={brush.id}
-                        onClick={() => setBrushType(brush)}
-                        className={`p-1.5 rounded-lg text-base transition-all ${brushType.id === brush.id ? theme.active : theme.hover}`}
-                        title={brush.name}
-                      >
-                        {brush.icon}
-                      </button>
-                    ))}
-                  </div>
-                  <div className={`text-xs font-medium ${theme.textMuted} mb-1`}>Size: {brushSize}px</div>
-                  <input type="range" min="2" max="80" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-full accent-purple-500" />
-                  <div className={`text-xs font-medium ${theme.textMuted} mt-2 mb-1`}>Opacity: {Math.round(colorOpacity * 100)}%</div>
-                  <input type="range" min="10" max="100" value={colorOpacity * 100} onChange={e => setColorOpacity(e.target.value / 100)} className="w-full accent-purple-500" />
-
-                  <div className={`text-xs font-medium ${theme.textMuted} mt-2 mb-1`}>Stabilization: {['Off', 'Low', 'Medium', 'High', 'Max'][brushStabilization]}</div>
-                  <input type="range" min="0" max="4" value={brushStabilization} onChange={e => setBrushStabilization(Number(e.target.value))} className="w-full accent-purple-500" />
-
-                  {/* Lazy Brush */}
-                  <div className={`mt-3 pt-2 border-t ${theme.border}`}>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={lazyBrushEnabled}
-                        onChange={(e) => setLazyBrushEnabled(e.target.checked)}
-                        className="accent-purple-500"
-                      />
-                      <span>Lazy Brush</span>
-                      <span className="text-xs opacity-50" title="Brush follows cursor with delay for precision">🎯</span>
-                    </label>
-                    {lazyBrushEnabled && (
-                      <>
-                        <div className={`text-xs ${theme.textMuted} mt-2 mb-1`}>String Length: {lazyBrushRadius}px</div>
-                        <input
-                          type="range"
-                          min="10"
-                          max="80"
-                          value={lazyBrushRadius}
-                          onChange={e => setLazyBrushRadius(Number(e.target.value))}
-                          className="w-full accent-purple-500"
-                        />
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {activeTool === 'shape' && (
-                <>
-                  <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Shape Type</div>
-                  <div className="grid grid-cols-4 gap-1 mb-3">
-                    {shapeTools.map(shape => (
-                      <button
-                        key={shape.id}
-                        onClick={() => setShapeType(shape)}
-                        className={`p-1.5 rounded-lg text-lg transition-all ${shapeType.id === shape.id ? theme.active : theme.hover}`}
-                        title={shape.name}
-                      >
-                        {shape.icon}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={shapeFill} onChange={e => setShapeFill(e.target.checked)} className="accent-purple-500" />
-                    Fill shape
-                  </label>
-                </>
-              )}
-
-              {/* Symmetry */}
-              <div className={`text-xs font-medium ${theme.textMuted} mt-3 mb-2`}>Symmetry</div>
-              <div className="grid grid-cols-4 gap-1">
-                {symmetryModes.map(mode => (
-                  <button
-                    key={mode.id}
-                    onClick={() => setSymmetryMode(mode)}
-                    className={`p-1.5 rounded-lg text-sm transition-all ${symmetryMode.id === mode.id ? theme.active : theme.hover}`}
-                    title={mode.name}
-                  >
-                    {mode.icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Colors */}
-            <div className={`p-3 border-b ${theme.border}`}>
-              <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Color</div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg border-2 border-gray-300 shadow-inner" style={{ backgroundColor: selectedColor, opacity: colorOpacity }} />
-                <input
-                  type="text"
-                  value={hexInput}
-                  onChange={e => handleHexChange(e.target.value)}
-                  className={`flex-1 px-2 py-1 text-sm rounded-lg border ${theme.border} ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}
-                  placeholder="#FFFFFF"
+            <TabPanel
+              tabs={isTablet ? [
+                { id: 'tools', icon: '🖌️', label: 'Tools' },
+                { id: 'colors', icon: '🎨', label: 'Colors' },
+                { id: 'layers', icon: '📑', label: 'Layers' },
+                { id: 'canvas', icon: '⚙️', label: 'More' },
+              ] : [
+                { id: 'tools', icon: '🖌️', label: 'Tools' },
+                { id: 'colors', icon: '🎨', label: 'Colors' },
+                { id: 'canvas', icon: '⚙️', label: 'Canvas' },
+              ]}
+              activeTab={leftSidebarTab}
+              onChange={setLeftSidebarTab}
+              darkMode={darkMode}
+            >
+              {leftSidebarTab === 'tools' && (
+                <ToolsPanel
+                  activeTool={activeTool}
+                  setActiveTool={setActiveTool}
+                  brushTypes={brushTypes}
+                  brushType={brushType}
+                  setBrushType={setBrushType}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                  brushStabilization={brushStabilization}
+                  setBrushStabilization={setBrushStabilization}
+                  lazyBrushEnabled={lazyBrushEnabled}
+                  setLazyBrushEnabled={setLazyBrushEnabled}
+                  lazyBrushRadius={lazyBrushRadius}
+                  setLazyBrushRadius={setLazyBrushRadius}
+                  shapeTools={shapeTools}
+                  shapeType={shapeType}
+                  setShapeType={setShapeType}
+                  shapeFill={shapeFill}
+                  setShapeFill={setShapeFill}
+                  symmetryModes={symmetryModes}
+                  symmetryMode={symmetryMode}
+                  setSymmetryMode={setSymmetryMode}
+                  darkMode={darkMode}
                 />
-              </div>
-              <div className="flex gap-1 mb-2 flex-wrap">
-                {Object.keys(colorPalettes).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => { setCurrentPalette(p); setSelectedColor(colorPalettes[p][0]); setHexInput(colorPalettes[p][0]); }}
-                    className={`px-2 py-0.5 rounded-full text-xs capitalize transition-all ${currentPalette === p ? theme.active : theme.hover}`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-5 gap-1">
-                {colorPalettes[currentPalette].map(color => (
-                  <button
-                    key={color}
-                    onClick={() => { setSelectedColor(color); setHexInput(color); }}
-                    className={`w-8 h-8 rounded-lg transition-all ${selectedColor === color ? 'ring-2 ring-purple-500 ring-offset-2 scale-110' : 'hover:scale-105'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-              {recentColors.length > 0 && (
-                <div className="mt-2">
-                  <div className={`text-xs ${theme.textMuted} mb-1`}>Recent</div>
-                  <div className="flex gap-1 flex-wrap">
-                    {recentColors.map((c, i) => (
-                      <button key={i} onClick={() => { setSelectedColor(c); setHexInput(c); }} className="w-6 h-6 rounded-md border border-gray-300" style={{ backgroundColor: c }} />
-                    ))}
-                  </div>
-                </div>
               )}
-
-              {/* Color Harmony */}
-              <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => { setShowColorHarmony(!showColorHarmony); if (!showColorHarmony) setHarmonyColors(generateColorHarmony(selectedColor, selectedHarmony)); }}
-                  className={`w-full text-left text-xs font-medium ${theme.textMuted} flex justify-between items-center`}
-                >
-                  <span>🎨 Color Harmony</span>
-                  <span>{showColorHarmony ? '▼' : '▶'}</span>
-                </button>
-                {showColorHarmony && (
-                  <div className="mt-2">
-                    <select
-                      value={selectedHarmony}
-                      onChange={(e) => setSelectedHarmony(e.target.value)}
-                      className={`w-full px-2 py-1 text-xs rounded border ${theme.border} ${darkMode ? 'bg-gray-700' : 'bg-white'} mb-2`}
-                    >
-                      {colorHarmonyTypes.map(h => (
-                        <option key={h.id} value={h.id}>{h.name}</option>
-                      ))}
-                    </select>
-                    <div className="flex gap-1">
-                      {harmonyColors.map((color, i) => (
-                        <button
-                          key={i}
-                          onClick={() => { setSelectedColor(color); setHexInput(color); }}
-                          className={`flex-1 h-8 rounded-md transition-all hover:scale-105 ${selectedColor === color ? 'ring-2 ring-purple-500' : ''}`}
-                          style={{ backgroundColor: color }}
-                          title={color}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Canvas Options */}
-            <div className={`p-3 border-b ${theme.border}`}>
-              <div className={`text-xs font-medium ${theme.textMuted} mb-2`}>Canvas</div>
-              <div className="flex items-center gap-2 mb-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} className="accent-purple-500" />
-                  Grid
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={snapToGrid} onChange={e => setSnapToGrid(e.target.checked)} className="accent-purple-500" />
-                  Snap
-                </label>
-              </div>
-              <div className={`text-xs ${theme.textMuted} mb-1`}>Background</div>
-              <div className="grid grid-cols-8 gap-1">
-                {backgroundColors.slice(0, 16).map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setBackgroundColor(color)}
-                    className={`w-5 h-5 rounded-md border transition-all ${backgroundColor === color ? 'ring-2 ring-purple-500' : 'border-gray-300'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Clear */}
-            <div className="p-3">
-              <button onClick={clearDrawing} className="w-full py-2 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200 transition-all">
-                🗑️ Clear Canvas
-              </button>
-            </div>
+              {leftSidebarTab === 'colors' && (
+                <ColorsPanel
+                  colorPalettes={colorPalettes}
+                  currentPalette={currentPalette}
+                  setCurrentPalette={setCurrentPalette}
+                  selectedColor={selectedColor}
+                  setSelectedColor={setSelectedColor}
+                  colorOpacity={colorOpacity}
+                  setColorOpacity={setColorOpacity}
+                  hexInput={hexInput}
+                  setHexInput={setHexInput}
+                  onHexChange={handleHexChange}
+                  recentColors={recentColors}
+                  showColorHarmony={showColorHarmony}
+                  setShowColorHarmony={setShowColorHarmony}
+                  colorHarmonyTypes={colorHarmonyTypes}
+                  selectedHarmony={selectedHarmony}
+                  setSelectedHarmony={setSelectedHarmony}
+                  harmonyColors={harmonyColors}
+                  darkMode={darkMode}
+                />
+              )}
+              {leftSidebarTab === 'layers' && isTablet && (
+                <LayersPanel
+                  layers={layers}
+                  activeLayerId={activeLayerId}
+                  setActiveLayerId={setActiveLayerId}
+                  onAddLayer={addLayer}
+                  onDeleteLayer={deleteLayer}
+                  onToggleVisibility={toggleLayerVisibility}
+                  onToggleLock={toggleLayerLock}
+                  onLayerOpacity={setLayerOpacity}
+                  onMoveLayer={(id, dir) => {
+                    const idx = layers.findIndex(l => l.id === id);
+                    if (dir === 'up' && idx < layers.length - 1) {
+                      const newLayers = [...layers];
+                      [newLayers[idx], newLayers[idx + 1]] = [newLayers[idx + 1], newLayers[idx]];
+                      setLayers(newLayers);
+                    } else if (dir === 'down' && idx > 0) {
+                      const newLayers = [...layers];
+                      [newLayers[idx], newLayers[idx - 1]] = [newLayers[idx - 1], newLayers[idx]];
+                      setLayers(newLayers);
+                    }
+                  }}
+                  onDuplicateLayer={duplicateLayer}
+                  onMergeDown={(id) => {
+                    const idx = layers.findIndex(l => l.id === id);
+                    if (idx > 0) {
+                      const newLayers = [...layers];
+                      newLayers[idx - 1].paths = [...newLayers[idx - 1].paths, ...newLayers[idx].paths];
+                      newLayers.splice(idx, 1);
+                      setLayers(newLayers);
+                      setActiveLayerId(newLayers[idx - 1].id);
+                    }
+                  }}
+                  darkMode={darkMode}
+                />
+              )}
+              {leftSidebarTab === 'canvas' && (
+                <CanvasPanel
+                  backgroundColor={backgroundColor}
+                  setBackgroundColor={setBackgroundColor}
+                  backgroundColors={backgroundColors}
+                  showGrid={showGrid}
+                  setShowGrid={setShowGrid}
+                  gridSize={gridSize}
+                  setGridSize={setGridSize}
+                  snapToGrid={snapToGrid}
+                  setSnapToGrid={setSnapToGrid}
+                  drawings={drawings}
+                  currentDrawing={currentDrawing}
+                  setCurrentDrawing={setCurrentDrawing}
+                  onExport={() => setShowExportModal(true)}
+                  exportFormat={exportFormat}
+                  setExportFormat={setExportFormat}
+                  exportQuality={exportQuality}
+                  setExportQuality={setExportQuality}
+                  onClearCanvas={clearDrawing}
+                  onResetCanvas={() => { clearDrawing(); setFilledColors({}); }}
+                  darkMode={darkMode}
+                />
+              )}
+            </TabPanel>
           </div>
         )}
 
@@ -2388,146 +2420,223 @@ export default function ColoringGame() {
           </div>
         </div>
 
-        {/* Right Sidebar - Layers (desktop) - hidden in focus mode */}
-        {!isMobile && !focusMode && (
+        {/* Right Sidebar - Layers & Wellness (desktop only) - hidden on tablet/mobile and in focus mode */}
+        {isDesktop && !focusMode && (
           <div className={`w-56 ${theme.panel} border-l ${theme.border} flex flex-col overflow-hidden`}>
-            <div className={`flex items-center justify-between p-2 border-b ${theme.border}`}>
-              <span className={`text-xs font-medium ${theme.textMuted}`}>Layers</span>
-              <button onClick={addLayer} className={`p-1 rounded ${theme.hover} text-sm`} title="Add layer">➕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {[...layers].reverse().map(layer => (
-                <div
-                  key={layer.id}
-                  draggable
-                  onDragStart={() => handleLayerDragStart(layer.id)}
-                  onDragOver={handleLayerDragOver}
-                  onDrop={() => handleLayerDrop(layer.id)}
-                  onClick={() => setActiveLayerId(layer.id)}
-                  className={`flex items-center gap-2 px-2 py-2 cursor-pointer border-b ${theme.border} transition-all ${
-                    activeLayerId === layer.id ? 'bg-purple-100 dark:bg-purple-900/40' : theme.hover
-                  } ${draggedLayerId === layer.id ? 'opacity-50' : ''}`}
-                >
-                  <button onClick={e => { e.stopPropagation(); toggleLayerVisibility(layer.id); }} className={layer.visible ? '' : 'opacity-30'}>
-                    👁️
-                  </button>
-                  <button onClick={e => { e.stopPropagation(); toggleLayerLock(layer.id); }}>
-                    {layer.locked ? '🔒' : '🔓'}
-                  </button>
-                  <span className={`flex-1 text-sm truncate ${!layer.visible ? 'opacity-50' : ''}`}>{layer.name}</span>
-                  <button onClick={e => { e.stopPropagation(); duplicateLayer(layer.id); }} className="opacity-50 hover:opacity-100 text-xs">📋</button>
-                  {layers.length > 1 && (
-                    <button onClick={e => { e.stopPropagation(); deleteLayer(layer.id); }} className="opacity-50 hover:opacity-100 text-xs text-red-500">🗑️</button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {getActiveLayer() && (
-              <div className={`p-3 border-t ${theme.border}`}>
-                <div className={`text-xs ${theme.textMuted} mb-1`}>Layer Opacity</div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={getActiveLayer().opacity * 100}
-                  onChange={e => setLayerOpacity(activeLayerId, e.target.value / 100)}
-                  className="w-full accent-purple-500"
+            <TabPanel
+              tabs={[
+                { id: 'layers', icon: '📑', label: 'Layers' },
+                { id: 'wellness', icon: '🧘', label: 'Wellness' },
+              ]}
+              activeTab={rightSidebarTab}
+              onChange={setRightSidebarTab}
+              darkMode={darkMode}
+            >
+              {rightSidebarTab === 'layers' && (
+                <LayersPanel
+                  layers={layers}
+                  activeLayerId={activeLayerId}
+                  setActiveLayerId={setActiveLayerId}
+                  onAddLayer={addLayer}
+                  onDeleteLayer={deleteLayer}
+                  onToggleVisibility={toggleLayerVisibility}
+                  onToggleLock={toggleLayerLock}
+                  onLayerOpacity={setLayerOpacity}
+                  onMoveLayer={(id, dir) => {
+                    const idx = layers.findIndex(l => l.id === id);
+                    if (dir === 'up' && idx < layers.length - 1) {
+                      const newLayers = [...layers];
+                      [newLayers[idx], newLayers[idx + 1]] = [newLayers[idx + 1], newLayers[idx]];
+                      setLayers(newLayers);
+                    } else if (dir === 'down' && idx > 0) {
+                      const newLayers = [...layers];
+                      [newLayers[idx], newLayers[idx - 1]] = [newLayers[idx - 1], newLayers[idx]];
+                      setLayers(newLayers);
+                    }
+                  }}
+                  onDuplicateLayer={duplicateLayer}
+                  onMergeDown={(id) => {
+                    const idx = layers.findIndex(l => l.id === id);
+                    if (idx > 0) {
+                      const newLayers = [...layers];
+                      newLayers[idx - 1].paths = [...newLayers[idx - 1].paths, ...newLayers[idx].paths];
+                      newLayers.splice(idx, 1);
+                      setLayers(newLayers);
+                      setActiveLayerId(newLayers[idx - 1].id);
+                    }
+                  }}
+                  darkMode={darkMode}
                 />
-              </div>
-            )}
+              )}
+              {rightSidebarTab === 'wellness' && (
+                <WellnessPanel
+                  sessionSeconds={sessionSeconds}
+                  formatTime={formatTime}
+                  breakInterval={breakInterval}
+                  setBreakInterval={setBreakInterval}
+                  breakReminderEnabled={breakReminderEnabled}
+                  setBreakReminderEnabled={setBreakReminderEnabled}
+                  onTakeBreak={() => setLastBreakTime(Date.now())}
+                  showBreathing={showBreathing}
+                  setShowBreathing={setShowBreathing}
+                  breathingPatterns={breathingPatterns}
+                  breathingPattern={breathingPattern}
+                  setBreathingPattern={setBreathingPattern}
+                  breathingPhase={breathingPhase}
+                  breathingProgress={breathingProgress}
+                  showDailyPrompt={showDailyPrompt}
+                  setShowDailyPrompt={setShowDailyPrompt}
+                  currentPrompt={currentPrompt}
+                  onNewPrompt={() => {
+                    const newIdx = Math.floor(Math.random() * dailyPrompts.length);
+                    setCurrentPrompt(dailyPrompts[newIdx]);
+                  }}
+                  ambientSounds={ambientSounds}
+                  activeSounds={activeSounds}
+                  onToggleSound={(soundId) => {
+                    if (activeSounds[soundId]) {
+                      stopSound(soundId);
+                      setActiveSounds(prev => { const n = {...prev}; delete n[soundId]; return n; });
+                    } else {
+                      startSound(soundId, masterVolume);
+                      setActiveSounds(prev => ({ ...prev, [soundId]: true }));
+                    }
+                  }}
+                  masterVolume={masterVolume}
+                  setMasterVolume={setMasterVolume}
+                  musicTracks={musicTracks}
+                  isPlaying={isPlaying}
+                  currentTrack={currentTrack}
+                  playTrack={playTrack}
+                  stopMusic={stopMusic}
+                  darkMode={darkMode}
+                />
+              )}
+            </TabPanel>
           </div>
         )}
       </div>
 
-      {/* Mobile Tools Panel */}
-      {isMobile && showMobileTools && (
-        <div className={`absolute bottom-0 left-0 right-0 ${theme.panel} rounded-t-2xl shadow-2xl p-4 z-30 max-h-[70vh] overflow-y-auto`}>
-          <div className="flex justify-center mb-2">
-            <div className="w-12 h-1 bg-gray-300 rounded-full" />
-          </div>
-
-          {/* Tools */}
-          <div className="flex gap-2 mb-4 justify-center">
-            {[
-              { id: 'brush', icon: '🖌️' },
-              { id: 'eraser', icon: '🧽' },
-              { id: 'fill', icon: '🪣' },
-              { id: 'shape', icon: '⬜' },
-            ].map(tool => (
-              <button
-                key={tool.id}
-                onClick={() => setActiveTool(tool.id)}
-                className={`w-12 h-12 rounded-xl text-xl transition-all ${activeTool === tool.id ? theme.active : theme.hover}`}
-              >
-                {tool.icon}
-              </button>
-            ))}
-          </div>
-
-          {/* Brush options */}
-          {(activeTool === 'brush' || activeTool === 'eraser') && (
-            <div className="mb-4">
-              <div className="grid grid-cols-5 gap-2 mb-3">
-                {brushTypes.slice(0, 5).map(brush => (
-                  <button
-                    key={brush.id}
-                    onClick={() => setBrushType(brush)}
-                    className={`p-2 rounded-lg text-lg ${brushType.id === brush.id ? theme.active : theme.hover}`}
-                  >
-                    {brush.icon}
-                  </button>
-                ))}
-              </div>
-              <div className={`text-xs ${theme.textMuted} mb-1`}>Size: {brushSize}px</div>
-              <input type="range" min="2" max="60" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-full accent-purple-500" />
-            </div>
-          )}
-
-          {/* Colors */}
-          <div>
-            <div className="flex gap-1 mb-2 flex-wrap justify-center">
-              {Object.keys(colorPalettes).slice(0, 4).map(p => (
-                <button
-                  key={p}
-                  onClick={() => { setCurrentPalette(p); setSelectedColor(colorPalettes[p][0]); }}
-                  className={`px-3 py-1 rounded-full text-xs capitalize ${currentPalette === p ? theme.active : theme.hover}`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-10 gap-2">
-              {colorPalettes[currentPalette].map(color => (
-                <button
-                  key={color}
-                  onClick={() => { setSelectedColor(color); setHexInput(color); }}
-                  className={`w-8 h-8 rounded-full transition-all ${selectedColor === color ? 'ring-2 ring-purple-500 ring-offset-2 scale-110' : ''}`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <button onClick={() => setShowMobileTools(false)} className={`w-full mt-4 py-2 ${theme.hover} rounded-lg text-sm`}>
-            Close
-          </button>
-        </div>
+      {/* Mobile Tools Bottom Sheet */}
+      {isMobile && (
+        <BottomSheet
+          isOpen={showMobileTools}
+          onClose={() => setShowMobileTools(false)}
+          title="Tools & Colors"
+          darkMode={darkMode}
+        >
+          <TabPanel
+            tabs={[
+              { id: 'tools', icon: '🖌️', label: 'Tools' },
+              { id: 'colors', icon: '🎨', label: 'Colors' },
+              { id: 'layers', icon: '📑', label: 'Layers' },
+            ]}
+            activeTab={leftSidebarTab}
+            onChange={setLeftSidebarTab}
+            darkMode={darkMode}
+          >
+            {leftSidebarTab === 'tools' && (
+              <ToolsPanel
+                activeTool={activeTool}
+                setActiveTool={setActiveTool}
+                brushTypes={brushTypes}
+                brushType={brushType}
+                setBrushType={setBrushType}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+                brushStabilization={brushStabilization}
+                setBrushStabilization={setBrushStabilization}
+                lazyBrushEnabled={lazyBrushEnabled}
+                setLazyBrushEnabled={setLazyBrushEnabled}
+                lazyBrushRadius={lazyBrushRadius}
+                setLazyBrushRadius={setLazyBrushRadius}
+                shapeTools={shapeTools}
+                shapeType={shapeType}
+                setShapeType={setShapeType}
+                shapeFill={shapeFill}
+                setShapeFill={setShapeFill}
+                symmetryModes={symmetryModes}
+                symmetryMode={symmetryMode}
+                setSymmetryMode={setSymmetryMode}
+                darkMode={darkMode}
+              />
+            )}
+            {leftSidebarTab === 'colors' && (
+              <ColorsPanel
+                colorPalettes={colorPalettes}
+                currentPalette={currentPalette}
+                setCurrentPalette={setCurrentPalette}
+                selectedColor={selectedColor}
+                setSelectedColor={setSelectedColor}
+                colorOpacity={colorOpacity}
+                setColorOpacity={setColorOpacity}
+                hexInput={hexInput}
+                setHexInput={setHexInput}
+                onHexChange={handleHexChange}
+                recentColors={recentColors}
+                showColorHarmony={showColorHarmony}
+                setShowColorHarmony={setShowColorHarmony}
+                colorHarmonyTypes={colorHarmonyTypes}
+                selectedHarmony={selectedHarmony}
+                setSelectedHarmony={setSelectedHarmony}
+                harmonyColors={harmonyColors}
+                darkMode={darkMode}
+              />
+            )}
+            {leftSidebarTab === 'layers' && (
+              <LayersPanel
+                layers={layers}
+                activeLayerId={activeLayerId}
+                setActiveLayerId={setActiveLayerId}
+                onAddLayer={addLayer}
+                onDeleteLayer={deleteLayer}
+                onToggleVisibility={toggleLayerVisibility}
+                onToggleLock={toggleLayerLock}
+                onLayerOpacity={setLayerOpacity}
+                onMoveLayer={(id, dir) => {
+                  const idx = layers.findIndex(l => l.id === id);
+                  if (dir === 'up' && idx < layers.length - 1) {
+                    const newLayers = [...layers];
+                    [newLayers[idx], newLayers[idx + 1]] = [newLayers[idx + 1], newLayers[idx]];
+                    setLayers(newLayers);
+                  } else if (dir === 'down' && idx > 0) {
+                    const newLayers = [...layers];
+                    [newLayers[idx], newLayers[idx - 1]] = [newLayers[idx - 1], newLayers[idx]];
+                    setLayers(newLayers);
+                  }
+                }}
+                onDuplicateLayer={duplicateLayer}
+                onMergeDown={(id) => {
+                  const idx = layers.findIndex(l => l.id === id);
+                  if (idx > 0) {
+                    const newLayers = [...layers];
+                    newLayers[idx - 1].paths = [...newLayers[idx - 1].paths, ...newLayers[idx].paths];
+                    newLayers.splice(idx, 1);
+                    setLayers(newLayers);
+                    setActiveLayerId(newLayers[idx - 1].id);
+                  }
+                }}
+                darkMode={darkMode}
+              />
+            )}
+          </TabPanel>
+        </BottomSheet>
       )}
 
       {/* Status Bar - hidden in focus mode */}
       {!focusMode && (
-      <div className={`flex items-center justify-between px-3 py-1 text-xs ${theme.panel} ${theme.textMuted} border-t ${theme.border}`}>
-        <div className="flex items-center gap-3">
-          <span>{drawing.icon} {drawing.name}</span>
-          <span>•</span>
-          <span>Layer: {getActiveLayer()?.name}</span>
-          {symmetryMode.id !== 'none' && <span className="text-purple-500">• Symmetry: {symmetryMode.name}</span>}
-        </div>
-        <div className="flex items-center gap-3">
-          {history.length > 0 && <span>History: {historyIndex + 1}/{history.length}</span>}
-          <span>{Math.round(zoom * 100)}%</span>
-        </div>
-      </div>
+        <StatusBar
+          activeTool={activeTool}
+          brushType={brushType}
+          brushSize={brushSize}
+          shapeType={shapeType}
+          activeLayer={getActiveLayer()}
+          layerCount={layers.length}
+          symmetryMode={symmetryMode}
+          historyIndex={historyIndex}
+          historyLength={history.length}
+          darkMode={darkMode}
+        />
       )}
 
       {/* Export Modal */}
