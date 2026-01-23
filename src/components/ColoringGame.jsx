@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Import modular components
-import { TabPanel } from './ui';
+import { TabPanel, BottomSheet } from './ui';
 import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel } from './panels';
 import { StatusBar } from './toolbar';
 import { GridOverlay, LazyBrushIndicator } from './canvas';
+import { useTouchGestures } from './hooks';
 
 // ============ CONSTANTS ============
 
@@ -974,14 +975,27 @@ export default function ColoringGame() {
   const [exportFormat, setExportFormat] = useState('png');
   const [exportQuality, setExportQuality] = useState(2);
 
-  // Window size
+  // Window size and responsive breakpoints
   const [windowSize, setWindowSize] = useState({ width: 800, height: 600 });
-  const isMobile = windowSize.width < 768;
+  const isMobile = windowSize.width < 640;
+  const isTablet = windowSize.width >= 640 && windowSize.width < 1024;
+  const isDesktop = windowSize.width >= 1024;
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
   const { startSound, stopSound, setVolume: setAmbientVolume, stopAllSounds } = useAmbientSounds();
+
+  // Touch gestures for mobile (pinch-to-zoom, two-finger pan)
+  useTouchGestures({
+    targetRef: containerRef,
+    onZoom: (delta) => {
+      setZoom(z => Math.max(0.25, Math.min(4, z + delta)));
+    },
+    onPan: (delta) => {
+      setPan(p => ({ x: p.x + delta.x, y: p.y + delta.y }));
+    },
+  });
 
   // ============ EFFECTS ============
 
@@ -1671,10 +1685,11 @@ export default function ColoringGame() {
   const drawing = drawings[currentDrawing];
 
   // Calculate canvas size to fill available space
-  const sidebarWidth = isMobile ? 0 : (focusMode ? 0 : 224 * 2); // 224px (w-56) each sidebar
-  const headerHeight = focusMode ? 0 : 52;
-  const statusHeight = focusMode ? 0 : 28;
-  const padding = isMobile ? 8 : 16;
+  // Mobile: no sidebars, Tablet: one sidebar (224px), Desktop: two sidebars (448px)
+  const sidebarWidth = isMobile ? 0 : (focusMode ? 0 : (isTablet ? 224 : 224 * 2));
+  const headerHeight = focusMode ? 0 : (isMobile ? 44 : 52);
+  const statusHeight = focusMode ? 0 : (isMobile ? 0 : 28);
+  const padding = isMobile ? 4 : (isTablet ? 8 : 16);
 
   const availableWidth = windowSize.width - sidebarWidth - padding * 2;
   const availableHeight = windowSize.height - headerHeight - statusHeight - padding * 2;
@@ -2108,11 +2123,16 @@ export default function ColoringGame() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (desktop) - hidden in focus mode */}
+        {/* Left Sidebar (tablet/desktop) - hidden in focus mode */}
         {!isMobile && !focusMode && (
           <div className={`w-56 ${theme.panel} border-r ${theme.border} flex flex-col overflow-hidden`}>
             <TabPanel
-              tabs={[
+              tabs={isTablet ? [
+                { id: 'tools', icon: '🖌️', label: 'Tools' },
+                { id: 'colors', icon: '🎨', label: 'Colors' },
+                { id: 'layers', icon: '📑', label: 'Layers' },
+                { id: 'canvas', icon: '⚙️', label: 'More' },
+              ] : [
                 { id: 'tools', icon: '🖌️', label: 'Tools' },
                 { id: 'colors', icon: '🎨', label: 'Colors' },
                 { id: 'canvas', icon: '⚙️', label: 'Canvas' },
@@ -2166,6 +2186,42 @@ export default function ColoringGame() {
                   selectedHarmony={selectedHarmony}
                   setSelectedHarmony={setSelectedHarmony}
                   harmonyColors={harmonyColors}
+                  darkMode={darkMode}
+                />
+              )}
+              {leftSidebarTab === 'layers' && isTablet && (
+                <LayersPanel
+                  layers={layers}
+                  activeLayerId={activeLayerId}
+                  setActiveLayerId={setActiveLayerId}
+                  onAddLayer={addLayer}
+                  onDeleteLayer={deleteLayer}
+                  onToggleVisibility={toggleLayerVisibility}
+                  onToggleLock={toggleLayerLock}
+                  onLayerOpacity={setLayerOpacity}
+                  onMoveLayer={(id, dir) => {
+                    const idx = layers.findIndex(l => l.id === id);
+                    if (dir === 'up' && idx < layers.length - 1) {
+                      const newLayers = [...layers];
+                      [newLayers[idx], newLayers[idx + 1]] = [newLayers[idx + 1], newLayers[idx]];
+                      setLayers(newLayers);
+                    } else if (dir === 'down' && idx > 0) {
+                      const newLayers = [...layers];
+                      [newLayers[idx], newLayers[idx - 1]] = [newLayers[idx - 1], newLayers[idx]];
+                      setLayers(newLayers);
+                    }
+                  }}
+                  onDuplicateLayer={duplicateLayer}
+                  onMergeDown={(id) => {
+                    const idx = layers.findIndex(l => l.id === id);
+                    if (idx > 0) {
+                      const newLayers = [...layers];
+                      newLayers[idx - 1].paths = [...newLayers[idx - 1].paths, ...newLayers[idx].paths];
+                      newLayers.splice(idx, 1);
+                      setLayers(newLayers);
+                      setActiveLayerId(newLayers[idx - 1].id);
+                    }
+                  }}
                   darkMode={darkMode}
                 />
               )}
@@ -2364,8 +2420,8 @@ export default function ColoringGame() {
           </div>
         </div>
 
-        {/* Right Sidebar - Layers & Wellness (desktop) - hidden in focus mode */}
-        {!isMobile && !focusMode && (
+        {/* Right Sidebar - Layers & Wellness (desktop only) - hidden on tablet/mobile and in focus mode */}
+        {isDesktop && !focusMode && (
           <div className={`w-56 ${theme.panel} border-l ${theme.border} flex flex-col overflow-hidden`}>
             <TabPanel
               tabs={[
@@ -2461,79 +2517,110 @@ export default function ColoringGame() {
         )}
       </div>
 
-      {/* Mobile Tools Panel */}
-      {isMobile && showMobileTools && (
-        <div className={`absolute bottom-0 left-0 right-0 ${theme.panel} rounded-t-2xl shadow-2xl p-4 z-30 max-h-[70vh] overflow-y-auto`}>
-          <div className="flex justify-center mb-2">
-            <div className="w-12 h-1 bg-gray-300 rounded-full" />
-          </div>
-
-          {/* Tools */}
-          <div className="flex gap-2 mb-4 justify-center">
-            {[
-              { id: 'brush', icon: '🖌️' },
-              { id: 'eraser', icon: '🧽' },
-              { id: 'fill', icon: '🪣' },
-              { id: 'shape', icon: '⬜' },
-            ].map(tool => (
-              <button
-                key={tool.id}
-                onClick={() => setActiveTool(tool.id)}
-                className={`w-12 h-12 rounded-xl text-xl transition-all ${activeTool === tool.id ? theme.active : theme.hover}`}
-              >
-                {tool.icon}
-              </button>
-            ))}
-          </div>
-
-          {/* Brush options */}
-          {(activeTool === 'brush' || activeTool === 'eraser') && (
-            <div className="mb-4">
-              <div className="grid grid-cols-5 gap-2 mb-3">
-                {brushTypes.slice(0, 5).map(brush => (
-                  <button
-                    key={brush.id}
-                    onClick={() => setBrushType(brush)}
-                    className={`p-2 rounded-lg text-lg ${brushType.id === brush.id ? theme.active : theme.hover}`}
-                  >
-                    {brush.icon}
-                  </button>
-                ))}
-              </div>
-              <div className={`text-xs ${theme.textMuted} mb-1`}>Size: {brushSize}px</div>
-              <input type="range" min="2" max="60" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-full accent-purple-500" />
-            </div>
-          )}
-
-          {/* Colors */}
-          <div>
-            <div className="flex gap-1 mb-2 flex-wrap justify-center">
-              {Object.keys(colorPalettes).slice(0, 4).map(p => (
-                <button
-                  key={p}
-                  onClick={() => { setCurrentPalette(p); setSelectedColor(colorPalettes[p][0]); }}
-                  className={`px-3 py-1 rounded-full text-xs capitalize ${currentPalette === p ? theme.active : theme.hover}`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-10 gap-2">
-              {colorPalettes[currentPalette].map(color => (
-                <button
-                  key={color}
-                  onClick={() => { setSelectedColor(color); setHexInput(color); }}
-                  className={`w-8 h-8 rounded-full transition-all ${selectedColor === color ? 'ring-2 ring-purple-500 ring-offset-2 scale-110' : ''}`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <button onClick={() => setShowMobileTools(false)} className={`w-full mt-4 py-2 ${theme.hover} rounded-lg text-sm`}>
-            Close
-          </button>
-        </div>
+      {/* Mobile Tools Bottom Sheet */}
+      {isMobile && (
+        <BottomSheet
+          isOpen={showMobileTools}
+          onClose={() => setShowMobileTools(false)}
+          title="Tools & Colors"
+          darkMode={darkMode}
+        >
+          <TabPanel
+            tabs={[
+              { id: 'tools', icon: '🖌️', label: 'Tools' },
+              { id: 'colors', icon: '🎨', label: 'Colors' },
+              { id: 'layers', icon: '📑', label: 'Layers' },
+            ]}
+            activeTab={leftSidebarTab}
+            onChange={setLeftSidebarTab}
+            darkMode={darkMode}
+          >
+            {leftSidebarTab === 'tools' && (
+              <ToolsPanel
+                activeTool={activeTool}
+                setActiveTool={setActiveTool}
+                brushTypes={brushTypes}
+                brushType={brushType}
+                setBrushType={setBrushType}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+                brushStabilization={brushStabilization}
+                setBrushStabilization={setBrushStabilization}
+                lazyBrushEnabled={lazyBrushEnabled}
+                setLazyBrushEnabled={setLazyBrushEnabled}
+                lazyBrushRadius={lazyBrushRadius}
+                setLazyBrushRadius={setLazyBrushRadius}
+                shapeTools={shapeTools}
+                shapeType={shapeType}
+                setShapeType={setShapeType}
+                shapeFill={shapeFill}
+                setShapeFill={setShapeFill}
+                symmetryModes={symmetryModes}
+                symmetryMode={symmetryMode}
+                setSymmetryMode={setSymmetryMode}
+                darkMode={darkMode}
+              />
+            )}
+            {leftSidebarTab === 'colors' && (
+              <ColorsPanel
+                colorPalettes={colorPalettes}
+                currentPalette={currentPalette}
+                setCurrentPalette={setCurrentPalette}
+                selectedColor={selectedColor}
+                setSelectedColor={setSelectedColor}
+                colorOpacity={colorOpacity}
+                setColorOpacity={setColorOpacity}
+                hexInput={hexInput}
+                setHexInput={setHexInput}
+                onHexChange={handleHexChange}
+                recentColors={recentColors}
+                showColorHarmony={showColorHarmony}
+                setShowColorHarmony={setShowColorHarmony}
+                colorHarmonyTypes={colorHarmonyTypes}
+                selectedHarmony={selectedHarmony}
+                setSelectedHarmony={setSelectedHarmony}
+                harmonyColors={harmonyColors}
+                darkMode={darkMode}
+              />
+            )}
+            {leftSidebarTab === 'layers' && (
+              <LayersPanel
+                layers={layers}
+                activeLayerId={activeLayerId}
+                setActiveLayerId={setActiveLayerId}
+                onAddLayer={addLayer}
+                onDeleteLayer={deleteLayer}
+                onToggleVisibility={toggleLayerVisibility}
+                onToggleLock={toggleLayerLock}
+                onLayerOpacity={setLayerOpacity}
+                onMoveLayer={(id, dir) => {
+                  const idx = layers.findIndex(l => l.id === id);
+                  if (dir === 'up' && idx < layers.length - 1) {
+                    const newLayers = [...layers];
+                    [newLayers[idx], newLayers[idx + 1]] = [newLayers[idx + 1], newLayers[idx]];
+                    setLayers(newLayers);
+                  } else if (dir === 'down' && idx > 0) {
+                    const newLayers = [...layers];
+                    [newLayers[idx], newLayers[idx - 1]] = [newLayers[idx - 1], newLayers[idx]];
+                    setLayers(newLayers);
+                  }
+                }}
+                onDuplicateLayer={duplicateLayer}
+                onMergeDown={(id) => {
+                  const idx = layers.findIndex(l => l.id === id);
+                  if (idx > 0) {
+                    const newLayers = [...layers];
+                    newLayers[idx - 1].paths = [...newLayers[idx - 1].paths, ...newLayers[idx].paths];
+                    newLayers.splice(idx, 1);
+                    setLayers(newLayers);
+                    setActiveLayerId(newLayers[idx - 1].id);
+                  }
+                }}
+                darkMode={darkMode}
+              />
+            )}
+          </TabPanel>
+        </BottomSheet>
       )}
 
       {/* Status Bar - hidden in focus mode */}

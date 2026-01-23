@@ -5,3 +5,4 @@ export { default as Slider } from './Slider';
 export { default as ColorSwatch } from './ColorSwatch';
 export { default as Modal } from './Modal';
 export { default as Sidebar } from './Sidebar';
+export { default as BottomSheet } from './BottomSheet';
