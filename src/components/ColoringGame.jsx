@@ -1594,8 +1594,29 @@ export default function ColoringGame() {
   // ============ RENDER ============
 
   const drawing = drawings[currentDrawing];
-  const canvasWidth = isMobile ? windowSize.width - 16 : Math.min(windowSize.width - 380, 900);
-  const canvasHeight = canvasWidth * (300 / 420);
+
+  // Calculate canvas size to fill available space
+  const sidebarWidth = isMobile ? 0 : (focusMode ? 0 : 224 * 2); // 224px (w-56) each sidebar
+  const headerHeight = focusMode ? 0 : 52;
+  const statusHeight = focusMode ? 0 : 28;
+  const padding = isMobile ? 8 : 16;
+
+  const availableWidth = windowSize.width - sidebarWidth - padding * 2;
+  const availableHeight = windowSize.height - headerHeight - statusHeight - padding * 2;
+
+  // Maintain 420:300 aspect ratio while filling space
+  const aspectRatio = 420 / 300;
+  let canvasWidth, canvasHeight;
+
+  if (availableWidth / availableHeight > aspectRatio) {
+    // Height is limiting factor
+    canvasHeight = Math.max(200, availableHeight);
+    canvasWidth = canvasHeight * aspectRatio;
+  } else {
+    // Width is limiting factor
+    canvasWidth = Math.max(280, availableWidth);
+    canvasHeight = canvasWidth / aspectRatio;
+  }
 
   const theme = {
     bg: darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50',
