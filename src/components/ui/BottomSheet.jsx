@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 /**
- * Mobile-friendly bottom sheet with drag handle and snap points
+ * Mobile-friendly bottom sheet with glassmorphism, drag handle and snap points
  * @param {Object} props
  * @param {boolean} props.isOpen - Open state
  * @param {function} props.onClose - Close handler
@@ -10,6 +10,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
  * @param {React.ReactNode} props.children - Sheet content
  * @param {string} props.snapPoint - 'closed' | 'half' | 'full'
  * @param {function} props.onSnapChange - Callback when snap point changes
+ * @param {string} props.variant - 'default' | 'glass'
  */
 export default function BottomSheet({
   isOpen,
@@ -19,6 +20,7 @@ export default function BottomSheet({
   children,
   snapPoint = 'half',
   onSnapChange,
+  variant = 'default',
 }) {
   const [currentSnap, setCurrentSnap] = useState(snapPoint);
   const [isDragging, setIsDragging] = useState(false);
@@ -27,11 +29,19 @@ export default function BottomSheet({
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
 
+  const isGlass = variant === 'glass';
+
   const theme = {
-    bg: darkMode ? 'bg-gray-800' : 'bg-white',
-    text: darkMode ? 'text-gray-200' : 'text-gray-800',
-    border: darkMode ? 'border-gray-700' : 'border-gray-200',
-    handle: darkMode ? 'bg-gray-600' : 'bg-gray-300',
+    bg: isGlass
+      ? (darkMode ? 'bg-gray-900/90 backdrop-blur-xl' : 'bg-white/90 backdrop-blur-xl')
+      : (darkMode ? 'bg-gray-800' : 'bg-white'),
+    text: darkMode ? 'text-gray-100' : 'text-gray-800',
+    textMuted: darkMode ? 'text-gray-400' : 'text-gray-500',
+    border: isGlass
+      ? (darkMode ? 'border-white/10' : 'border-gray-200/50')
+      : (darkMode ? 'border-gray-700' : 'border-gray-200'),
+    handle: darkMode ? 'bg-gray-500' : 'bg-gray-300',
+    handleHover: darkMode ? 'group-hover:bg-gray-400' : 'group-hover:bg-gray-400',
   };
 
   const snapHeights = {
@@ -113,11 +123,14 @@ export default function BottomSheet({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop with blur */}
       {currentSnap !== 'closed' && (
         <div
-          className="fixed inset-0 bg-black/30 z-40 transition-opacity"
-          style={{ opacity: currentSnap === 'full' ? 0.5 : 0.3 }}
+          className={`
+            fixed inset-0 z-40
+            transition-all duration-300 ease-out
+            ${currentSnap === 'full' ? 'bg-black/50 backdrop-blur-sm' : 'bg-black/30'}
+          `}
           onClick={onClose}
         />
       )}
@@ -125,39 +138,81 @@ export default function BottomSheet({
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`fixed left-0 right-0 bottom-0 ${theme.bg} rounded-t-2xl shadow-2xl z-50 transition-all duration-300 ease-out`}
+        className={`
+          fixed left-0 right-0 bottom-0 z-50
+          ${theme.bg} rounded-t-3xl
+          border-t ${theme.border}
+          transition-all ease-out
+          ${isDragging ? 'duration-0' : 'duration-300'}
+        `}
         style={{
           height: `${height}vh`,
           transform: `translateY(${translateY}px)`,
           maxHeight: '90vh',
+          boxShadow: darkMode
+            ? '0 -10px 40px -10px rgba(0, 0, 0, 0.5)'
+            : '0 -10px 40px -10px rgba(0, 0, 0, 0.15)',
         }}
       >
         {/* Drag Handle */}
         <div
-          className="flex flex-col items-center pt-2 pb-1 cursor-grab active:cursor-grabbing"
+          className="group flex flex-col items-center py-3 cursor-grab active:cursor-grabbing"
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
         >
-          <div className={`w-10 h-1 rounded-full ${theme.handle}`} />
+          <div className={`
+            w-12 h-1.5 rounded-full
+            ${theme.handle} ${theme.handleHover}
+            transition-all duration-200
+            group-active:w-16 group-active:bg-indigo-400
+          `} />
         </div>
 
         {/* Header */}
         {title && (
-          <div className={`flex items-center justify-between px-4 py-2 border-b ${theme.border}`}>
-            <h3 className={`font-semibold ${theme.text}`}>{title}</h3>
+          <div className={`
+            flex items-center justify-between px-5 py-3
+            border-b ${theme.border}
+          `}>
+            <h3 className={`font-semibold text-lg ${theme.text}`}>{title}</h3>
             <button
               onClick={onClose}
-              className={`p-1 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+              className={`
+                w-8 h-8 rounded-xl flex items-center justify-center
+                transition-all duration-150
+                ${darkMode
+                  ? 'hover:bg-white/10 text-gray-400 hover:text-white'
+                  : 'hover:bg-gray-100 text-gray-400 hover:text-gray-700'
+                }
+                hover:scale-105 active:scale-95
+              `}
+              aria-label="Close sheet"
             >
-              ✕
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: `calc(${height}vh - 60px)` }}>
+        <div
+          className={`
+            flex-1 overflow-y-auto p-5
+            scrollbar-thin
+            ${darkMode ? 'scrollbar-thumb-gray-600' : 'scrollbar-thumb-gray-300'}
+          `}
+          style={{ maxHeight: `calc(${height}vh - 80px)` }}
+        >
           {children}
         </div>
+
+        {/* Bottom safe area gradient */}
+        <div className={`
+          absolute bottom-0 left-0 right-0 h-8
+          pointer-events-none
+          bg-gradient-to-t ${darkMode ? 'from-gray-800' : 'from-white'} to-transparent
+        `} />
       </div>
     </>
   );
