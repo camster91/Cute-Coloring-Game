@@ -65,6 +65,40 @@ const musicTracks = [
   { name: 'Forest Birds', emoji: '🐦', type: 'nature' },
 ];
 
+// Ambient soundscapes for relaxation
+const ambientSounds = [
+  { id: 'rain', name: 'Rain', emoji: '🌧️', category: 'nature' },
+  { id: 'thunder', name: 'Thunderstorm', emoji: '⛈️', category: 'nature' },
+  { id: 'ocean', name: 'Ocean Waves', emoji: '🌊', category: 'nature' },
+  { id: 'forest', name: 'Forest', emoji: '🌲', category: 'nature' },
+  { id: 'birds', name: 'Birds', emoji: '🐦', category: 'nature' },
+  { id: 'wind', name: 'Wind', emoji: '💨', category: 'nature' },
+  { id: 'fire', name: 'Fireplace', emoji: '🔥', category: 'cozy' },
+  { id: 'cafe', name: 'Coffee Shop', emoji: '☕', category: 'ambient' },
+  { id: 'white', name: 'White Noise', emoji: '📻', category: 'focus' },
+  { id: 'brown', name: 'Brown Noise', emoji: '🟤', category: 'focus' },
+  { id: 'creek', name: 'Creek', emoji: '🏞️', category: 'nature' },
+  { id: 'night', name: 'Night Crickets', emoji: '🦗', category: 'nature' },
+];
+
+// Color harmony types
+const colorHarmonyTypes = [
+  { id: 'complementary', name: 'Complementary', description: 'Opposite colors' },
+  { id: 'analogous', name: 'Analogous', description: 'Adjacent colors' },
+  { id: 'triadic', name: 'Triadic', description: '3 evenly spaced' },
+  { id: 'splitComplementary', name: 'Split Comp.', description: 'Base + adjacent to complement' },
+  { id: 'tetradic', name: 'Tetradic', description: '4 evenly spaced' },
+  { id: 'monochromatic', name: 'Monochromatic', description: 'Same hue variations' },
+];
+
+// Breathing patterns for relaxation
+const breathingPatterns = [
+  { id: 'box', name: 'Box Breathing', inhale: 4, hold1: 4, exhale: 4, hold2: 4 },
+  { id: '478', name: '4-7-8 Relaxing', inhale: 4, hold1: 7, exhale: 8, hold2: 0 },
+  { id: 'calm', name: 'Calming', inhale: 4, hold1: 2, exhale: 6, hold2: 2 },
+  { id: 'energize', name: 'Energizing', inhale: 4, hold1: 0, exhale: 4, hold2: 0 },
+];
+
 const drawings = [
   {
     name: 'Bunny', icon: '🐰',
@@ -214,21 +248,126 @@ const useMusic = () => {
   return { isPlaying, currentTrack, playTrack, stopMusic };
 };
 
+// ============ COLOR HARMONY UTILITIES ============
+
+const hexToHSL = (hex) => {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+      default: h = 0;
+    }
+  }
+
+  return { h: h * 360, s: s * 100, l: l * 100 };
+};
+
+const hslToHex = ({ h, s, l }) => {
+  h = h / 360; s = s / 100; l = l / 100;
+  let r, g, b;
+
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+
+  const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+};
+
+const generateColorHarmony = (baseColor, harmonyType) => {
+  const hsl = hexToHSL(baseColor);
+  const colors = [baseColor];
+
+  switch (harmonyType) {
+    case 'complementary':
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 180) % 360 }));
+      break;
+    case 'analogous':
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 30) % 360 }));
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 330) % 360 }));
+      break;
+    case 'triadic':
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 120) % 360 }));
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 240) % 360 }));
+      break;
+    case 'splitComplementary':
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 150) % 360 }));
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 210) % 360 }));
+      break;
+    case 'tetradic':
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 90) % 360 }));
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 180) % 360 }));
+      colors.push(hslToHex({ ...hsl, h: (hsl.h + 270) % 360 }));
+      break;
+    case 'monochromatic':
+      colors.push(hslToHex({ ...hsl, l: Math.min(95, hsl.l + 20) }));
+      colors.push(hslToHex({ ...hsl, l: Math.max(5, hsl.l - 20) }));
+      colors.push(hslToHex({ ...hsl, s: Math.max(10, hsl.s - 30) }));
+      break;
+    default:
+      break;
+  }
+
+  return colors;
+};
+
 // ============ SMOOTH PATH UTILITY ============
 
-const smoothPath = (points) => {
+const smoothPath = (points, stabilization = 0) => {
   if (points.length < 3) {
     if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
     if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
     return '';
   }
 
-  let d = `M ${points[0].x} ${points[0].y}`;
+  // Apply stabilization by averaging nearby points
+  let processedPoints = points;
+  if (stabilization > 0) {
+    const windowSize = Math.min(Math.floor(stabilization * 5) + 1, points.length);
+    processedPoints = points.map((point, i) => {
+      const start = Math.max(0, i - windowSize);
+      const end = Math.min(points.length, i + windowSize + 1);
+      const window = points.slice(start, end);
+      return {
+        x: window.reduce((sum, p) => sum + p.x, 0) / window.length,
+        y: window.reduce((sum, p) => sum + p.y, 0) / window.length,
+        pressure: point.pressure
+      };
+    });
+  }
 
-  for (let i = 1; i < points.length - 1; i++) {
-    const p0 = points[i - 1];
-    const p1 = points[i];
-    const p2 = points[i + 1];
+  let d = `M ${processedPoints[0].x} ${processedPoints[0].y}`;
+
+  for (let i = 1; i < processedPoints.length - 1; i++) {
+    const p0 = processedPoints[i - 1];
+    const p1 = processedPoints[i];
+    const p2 = processedPoints[i + 1];
 
     const midX = (p1.x + p2.x) / 2;
     const midY = (p1.y + p2.y) / 2;
@@ -236,10 +375,19 @@ const smoothPath = (points) => {
     d += ` Q ${p1.x} ${p1.y} ${midX} ${midY}`;
   }
 
-  const last = points[points.length - 1];
+  const last = processedPoints[processedPoints.length - 1];
   d += ` L ${last.x} ${last.y}`;
 
   return d;
+};
+
+// Format time as HH:MM:SS
+const formatTime = (seconds) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 // ============ MAIN COMPONENT ============
@@ -289,6 +437,36 @@ export default function ColoringGame() {
   const [recentColors, setRecentColors] = useState([]);
   const [hexInput, setHexInput] = useState('#FFB5BA');
 
+  // Focus Mode (distraction-free drawing)
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusHoverZone, setFocusHoverZone] = useState(null);
+
+  // Session Timer
+  const [sessionStartTime] = useState(Date.now());
+  const [sessionSeconds, setSessionSeconds] = useState(0);
+  const [showBreakReminder, setShowBreakReminder] = useState(false);
+  const [breakInterval, setBreakInterval] = useState(25); // minutes
+  const [breakReminderEnabled, setBreakReminderEnabled] = useState(true);
+  const [lastBreakTime, setLastBreakTime] = useState(Date.now());
+
+  // Brush Stabilization
+  const [brushStabilization, setBrushStabilization] = useState(0); // 0-4 levels
+
+  // Color Harmony
+  const [showColorHarmony, setShowColorHarmony] = useState(false);
+  const [selectedHarmony, setSelectedHarmony] = useState('complementary');
+  const [harmonyColors, setHarmonyColors] = useState([]);
+
+  // Breathing Exercise
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [breathingPattern, setBreathingPattern] = useState(breathingPatterns[0]);
+  const [breathingPhase, setBreathingPhase] = useState('inhale');
+  const [breathingProgress, setBreathingProgress] = useState(0);
+
+  // Ambient Sound Mixer
+  const [activeSounds, setActiveSounds] = useState({});
+  const [masterVolume, setMasterVolume] = useState(0.7);
+
   // History (undo/redo)
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -318,6 +496,66 @@ export default function ColoringGame() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Session timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSessionSeconds(Math.floor((Date.now() - sessionStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [sessionStartTime]);
+
+  // Break reminder
+  useEffect(() => {
+    if (!breakReminderEnabled) return;
+    const checkBreak = setInterval(() => {
+      const minutesSinceBreak = (Date.now() - lastBreakTime) / 60000;
+      if (minutesSinceBreak >= breakInterval && !showBreakReminder) {
+        setShowBreakReminder(true);
+      }
+    }, 30000); // Check every 30 seconds
+    return () => clearInterval(checkBreak);
+  }, [breakInterval, lastBreakTime, breakReminderEnabled, showBreakReminder]);
+
+  // Update color harmony when color changes
+  useEffect(() => {
+    if (showColorHarmony) {
+      setHarmonyColors(generateColorHarmony(selectedColor, selectedHarmony));
+    }
+  }, [selectedColor, selectedHarmony, showColorHarmony]);
+
+  // Breathing exercise animation
+  useEffect(() => {
+    if (!showBreathing) return;
+
+    const pattern = breathingPattern;
+    const phases = [
+      { name: 'inhale', duration: pattern.inhale },
+      { name: 'hold1', duration: pattern.hold1 },
+      { name: 'exhale', duration: pattern.exhale },
+      { name: 'hold2', duration: pattern.hold2 },
+    ].filter(p => p.duration > 0);
+
+    let phaseIndex = 0;
+    let elapsed = 0;
+
+    const interval = setInterval(() => {
+      elapsed += 0.1;
+      const currentPhase = phases[phaseIndex];
+      const progress = elapsed / currentPhase.duration;
+
+      if (progress >= 1) {
+        phaseIndex = (phaseIndex + 1) % phases.length;
+        elapsed = 0;
+        setBreathingPhase(phases[phaseIndex].name);
+        setBreathingProgress(0);
+      } else {
+        setBreathingProgress(progress);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [showBreathing, breathingPattern]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -349,7 +587,22 @@ export default function ColoringGame() {
             setIsPanning(true);
           }
           break;
-        case 'escape': setActivePanel(null); break;
+        case 'escape':
+          if (focusMode) {
+            setFocusMode(false);
+          } else {
+            setActivePanel(null);
+          }
+          break;
+        case 'f11':
+          e.preventDefault();
+          setFocusMode(f => !f);
+          break;
+      }
+
+      // F key for focus mode
+      if (e.key === 'f' && !ctrlKey && !e.shiftKey) {
+        setFocusMode(f => !f);
       }
 
       if (ctrlKey) {
@@ -555,7 +808,8 @@ export default function ColoringGame() {
         brushType,
         opacity: activeTool === 'eraser' ? 1 : brushType.opacity * colorOpacity,
         points: [p],
-        isEraser: activeTool === 'eraser'
+        isEraser: activeTool === 'eraser',
+        stabilization: brushStabilization
       }));
 
       setCurrentPath(initialPaths);
@@ -803,7 +1057,60 @@ export default function ColoringGame() {
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden select-none ${theme.bg} ${theme.text}`}>
-      {/* Top Bar */}
+      {/* Focus Mode Floating Toolbar */}
+      {focusMode && (
+        <div
+          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 ${theme.panel} rounded-full shadow-lg px-4 py-2 flex items-center gap-3 opacity-30 hover:opacity-100 transition-opacity`}
+        >
+          <span className="text-sm font-medium">Focus Mode</span>
+          <div className={`w-px h-4 ${theme.border}`} />
+          {[
+            { id: 'brush', icon: '🖌️' },
+            { id: 'eraser', icon: '🧽' },
+          ].map(tool => (
+            <button
+              key={tool.id}
+              onClick={() => setActiveTool(tool.id)}
+              className={`p-1 rounded ${activeTool === tool.id ? 'bg-purple-500 text-white' : theme.hover}`}
+            >
+              {tool.icon}
+            </button>
+          ))}
+          <div className={`w-px h-4 ${theme.border}`} />
+          <div className="flex items-center gap-1">
+            <button onClick={() => setBrushSize(s => Math.max(2, s - 4))} className={`text-sm px-1 ${theme.hover} rounded`}>−</button>
+            <span className="text-xs w-6 text-center">{brushSize}</span>
+            <button onClick={() => setBrushSize(s => Math.min(80, s + 4))} className={`text-sm px-1 ${theme.hover} rounded`}>+</button>
+          </div>
+          <div
+            className="w-6 h-6 rounded-full border-2 border-white shadow cursor-pointer"
+            style={{ backgroundColor: selectedColor }}
+            onClick={() => setActivePanel(activePanel === 'focusColors' ? null : 'focusColors')}
+          />
+          <button onClick={() => setFocusMode(false)} className={`p-1 rounded ${theme.hover}`} title="Exit Focus Mode (Esc)">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Focus Mode Color Picker */}
+      {focusMode && activePanel === 'focusColors' && (
+        <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 ${theme.panel} rounded-xl shadow-lg p-3`}>
+          <div className="grid grid-cols-5 gap-1">
+            {colorPalettes[currentPalette].map(color => (
+              <button
+                key={color}
+                onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
+                className={`w-8 h-8 rounded-lg ${selectedColor === color ? 'ring-2 ring-purple-500' : ''}`}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top Bar - hidden in focus mode */}
+      {!focusMode && (
       <div className={`flex items-center justify-between px-2 py-1.5 ${theme.panel} shadow-sm z-20 gap-2`}>
         {/* Left: Logo + Drawing selector */}
         <div className="flex items-center gap-2">
@@ -872,11 +1179,22 @@ export default function ColoringGame() {
 
           <div className={`w-px h-6 mx-1 ${theme.border}`} />
 
+          {/* Session Timer */}
+          <div className={`px-2 py-1 rounded-lg text-xs ${theme.hover} cursor-pointer`} onClick={() => setActivePanel(activePanel === 'timer' ? null : 'timer')} title="Session Timer">
+            ⏱️ {formatTime(sessionSeconds)}
+          </div>
+
           <button onClick={() => setShowExportModal(true)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Export">💾</button>
-          <button onClick={() => setActivePanel(activePanel === 'music' ? null : 'music')} className={`p-1.5 rounded-lg ${isPlaying ? 'bg-green-500 text-white' : theme.hover}`}>
-            {isPlaying ? '🎵' : '🎶'}
+          <button onClick={() => setActivePanel(activePanel === 'sounds' ? null : 'sounds')} className={`p-1.5 rounded-lg ${Object.keys(activeSounds).length > 0 || isPlaying ? 'bg-green-500 text-white' : theme.hover}`} title="Sounds">
+            {isPlaying || Object.keys(activeSounds).length > 0 ? '🎵' : '🎶'}
           </button>
-          <button onClick={() => setDarkMode(!darkMode)} className={`p-1.5 rounded-lg ${theme.hover}`}>
+          <button onClick={() => setShowBreathing(!showBreathing)} className={`p-1.5 rounded-lg ${showBreathing ? 'bg-blue-500 text-white' : theme.hover}`} title="Breathing Exercise">
+            🫁
+          </button>
+          <button onClick={() => setFocusMode(!focusMode)} className={`p-1.5 rounded-lg ${focusMode ? 'bg-purple-500 text-white' : theme.hover}`} title="Focus Mode (F)">
+            {focusMode ? '🎯' : '👁️'}
+          </button>
+          <button onClick={() => setDarkMode(!darkMode)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Dark Mode">
             {darkMode ? '☀️' : '🌙'}
           </button>
 
@@ -887,35 +1205,204 @@ export default function ColoringGame() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Music Panel */}
-      {activePanel === 'music' && (
-        <div className={`absolute top-14 right-4 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-3 z-50 w-64`}>
-          <div className="text-sm font-medium mb-2">Background Music</div>
-          <div className="grid grid-cols-2 gap-2">
+      {/* Sounds Panel (Music + Ambient) */}
+      {activePanel === 'sounds' && (
+        <div className={`absolute top-14 right-4 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-3 z-50 w-80 max-h-96 overflow-y-auto`}>
+          <div className="text-sm font-medium mb-2">🎵 Background Music</div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {musicTracks.map(track => (
               <button
                 key={track.name}
                 onClick={() => isPlaying && currentTrack?.name === track.name ? stopMusic() : playTrack(track)}
                 className={`p-2 rounded-lg text-center transition-all ${currentTrack?.name === track.name ? 'bg-green-500 text-white' : theme.hover}`}
               >
-                <div className="text-xl">{track.emoji}</div>
-                <div className="text-xs">{track.name}</div>
+                <div className="text-lg">{track.emoji}</div>
+                <div className="text-xs truncate">{track.name}</div>
               </button>
             ))}
           </div>
-          {isPlaying && (
-            <button onClick={stopMusic} className="mt-2 w-full py-2 bg-red-500 text-white rounded-lg text-sm">
-              ⏹️ Stop Music
+
+          <div className="text-sm font-medium mb-2">🌿 Ambient Sounds</div>
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {ambientSounds.map(sound => (
+              <button
+                key={sound.id}
+                onClick={() => {
+                  setActiveSounds(prev => {
+                    if (prev[sound.id]) {
+                      const { [sound.id]: _, ...rest } = prev;
+                      return rest;
+                    }
+                    return { ...prev, [sound.id]: 0.5 };
+                  });
+                }}
+                className={`p-2 rounded-lg text-center transition-all ${activeSounds[sound.id] !== undefined ? 'bg-green-500 text-white' : theme.hover}`}
+                title={sound.name}
+              >
+                <div className="text-lg">{sound.emoji}</div>
+              </button>
+            ))}
+          </div>
+
+          {Object.keys(activeSounds).length > 0 && (
+            <div className="space-y-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className={`text-xs ${theme.textMuted}`}>Volume Controls</div>
+              {Object.entries(activeSounds).map(([id, volume]) => {
+                const sound = ambientSounds.find(s => s.id === id);
+                return (
+                  <div key={id} className="flex items-center gap-2">
+                    <span className="text-sm w-6">{sound?.emoji}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={volume * 100}
+                      onChange={(e) => setActiveSounds(prev => ({ ...prev, [id]: e.target.value / 100 }))}
+                      className="flex-1 accent-green-500"
+                    />
+                    <button
+                      onClick={() => setActiveSounds(prev => {
+                        const { [id]: _, ...rest } = prev;
+                        return rest;
+                      })}
+                      className="text-red-500 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {(isPlaying || Object.keys(activeSounds).length > 0) && (
+            <button
+              onClick={() => { stopMusic(); setActiveSounds({}); }}
+              className="mt-3 w-full py-2 bg-red-500 text-white rounded-lg text-sm"
+            >
+              ⏹️ Stop All Sounds
             </button>
           )}
         </div>
       )}
 
+      {/* Timer Settings Panel */}
+      {activePanel === 'timer' && (
+        <div className={`absolute top-14 right-20 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-3 z-50 w-64`}>
+          <div className="text-sm font-medium mb-3">⏱️ Session Timer</div>
+          <div className="text-2xl font-bold text-center mb-3 font-mono">
+            {formatTime(sessionSeconds)}
+          </div>
+          <div className={`text-xs ${theme.textMuted} mb-2`}>Break Reminder</div>
+          <label className="flex items-center gap-2 text-sm mb-2">
+            <input
+              type="checkbox"
+              checked={breakReminderEnabled}
+              onChange={(e) => setBreakReminderEnabled(e.target.checked)}
+              className="accent-purple-500"
+            />
+            Enable break reminders
+          </label>
+          {breakReminderEnabled && (
+            <div className="flex items-center gap-2 text-sm">
+              <span>Every</span>
+              <select
+                value={breakInterval}
+                onChange={(e) => setBreakInterval(Number(e.target.value))}
+                className={`px-2 py-1 rounded border ${theme.border} ${darkMode ? 'bg-gray-700' : 'bg-white'}`}
+              >
+                <option value={15}>15 min</option>
+                <option value={20}>20 min</option>
+                <option value={25}>25 min</option>
+                <option value={30}>30 min</option>
+                <option value={45}>45 min</option>
+                <option value={60}>60 min</option>
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Break Reminder Modal */}
+      {showBreakReminder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${theme.panel} rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center`}>
+            <div className="text-5xl mb-3">☕</div>
+            <h3 className="text-xl font-bold mb-2">Time for a Break!</h3>
+            <p className={`${theme.textMuted} mb-4`}>
+              You've been drawing for {breakInterval} minutes. Take a short break to:
+            </p>
+            <ul className={`text-left text-sm ${theme.textMuted} mb-4 space-y-1`}>
+              <li>• Stretch your hands and wrists</li>
+              <li>• Look away from the screen</li>
+              <li>• Get some water</li>
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowBreakReminder(false); setLastBreakTime(Date.now()); }}
+                className={`flex-1 py-2 rounded-lg ${theme.hover}`}
+              >
+                Skip
+              </button>
+              <button
+                onClick={() => { setShowBreakReminder(false); setLastBreakTime(Date.now()); }}
+                className="flex-1 py-2 bg-green-500 text-white rounded-lg"
+              >
+                I took a break ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Breathing Exercise Overlay */}
+      {showBreathing && (
+        <div
+          className="fixed bottom-20 right-4 z-40"
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div className={`${theme.panel} rounded-2xl shadow-2xl border ${theme.border} p-4 w-64`}>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-medium">🫁 Breathing</span>
+              <button onClick={() => setShowBreathing(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+
+            <div className="flex justify-center mb-3">
+              <div
+                className="relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500"
+                style={{
+                  backgroundColor: breathingPhase === 'inhale' ? '#93C5FD' :
+                    breathingPhase === 'exhale' ? '#C4B5FD' : '#D1D5DB',
+                  transform: `scale(${breathingPhase === 'inhale' ? 0.6 + breathingProgress * 0.4 :
+                    breathingPhase === 'exhale' ? 1 - breathingProgress * 0.4 : 1})`,
+                  boxShadow: `0 0 ${20 + breathingProgress * 20}px ${breathingPhase === 'inhale' ? '#93C5FD' : '#C4B5FD'}`
+                }}
+              >
+                <span className="text-sm font-medium text-gray-700 capitalize">
+                  {breathingPhase === 'hold1' || breathingPhase === 'hold2' ? 'Hold' : breathingPhase}
+                </span>
+              </div>
+            </div>
+
+            <select
+              value={breathingPattern.id}
+              onChange={(e) => setBreathingPattern(breathingPatterns.find(p => p.id === e.target.value))}
+              className={`w-full px-2 py-1 rounded border ${theme.border} text-sm ${darkMode ? 'bg-gray-700' : 'bg-white'}`}
+            >
+              {breathingPatterns.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (desktop) */}
-        {!isMobile && (
+        {/* Left Sidebar (desktop) - hidden in focus mode */}
+        {!isMobile && !focusMode && (
           <div className={`w-56 ${theme.panel} border-r ${theme.border} flex flex-col overflow-hidden`}>
             {/* Tool Options */}
             <div className={`p-3 border-b ${theme.border}`}>
@@ -938,6 +1425,9 @@ export default function ColoringGame() {
                   <input type="range" min="2" max="80" value={brushSize} onChange={e => setBrushSize(Number(e.target.value))} className="w-full accent-purple-500" />
                   <div className={`text-xs font-medium ${theme.textMuted} mt-2 mb-1`}>Opacity: {Math.round(colorOpacity * 100)}%</div>
                   <input type="range" min="10" max="100" value={colorOpacity * 100} onChange={e => setColorOpacity(e.target.value / 100)} className="w-full accent-purple-500" />
+
+                  <div className={`text-xs font-medium ${theme.textMuted} mt-2 mb-1`}>Stabilization: {['Off', 'Low', 'Medium', 'High', 'Max'][brushStabilization]}</div>
+                  <input type="range" min="0" max="4" value={brushStabilization} onChange={e => setBrushStabilization(Number(e.target.value))} className="w-full accent-purple-500" />
                 </>
               )}
 
@@ -1023,6 +1513,41 @@ export default function ColoringGame() {
                   </div>
                 </div>
               )}
+
+              {/* Color Harmony */}
+              <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => { setShowColorHarmony(!showColorHarmony); if (!showColorHarmony) setHarmonyColors(generateColorHarmony(selectedColor, selectedHarmony)); }}
+                  className={`w-full text-left text-xs font-medium ${theme.textMuted} flex justify-between items-center`}
+                >
+                  <span>🎨 Color Harmony</span>
+                  <span>{showColorHarmony ? '▼' : '▶'}</span>
+                </button>
+                {showColorHarmony && (
+                  <div className="mt-2">
+                    <select
+                      value={selectedHarmony}
+                      onChange={(e) => setSelectedHarmony(e.target.value)}
+                      className={`w-full px-2 py-1 text-xs rounded border ${theme.border} ${darkMode ? 'bg-gray-700' : 'bg-white'} mb-2`}
+                    >
+                      {colorHarmonyTypes.map(h => (
+                        <option key={h.id} value={h.id}>{h.name}</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-1">
+                      {harmonyColors.map((color, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setSelectedColor(color); setHexInput(color); }}
+                          className={`flex-1 h-8 rounded-md transition-all hover:scale-105 ${selectedColor === color ? 'ring-2 ring-purple-500' : ''}`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Canvas Options */}
@@ -1128,7 +1653,7 @@ export default function ColoringGame() {
                   ) : (
                     <path
                       key={path.id || i}
-                      d={smoothPath(path.points)}
+                      d={smoothPath(path.points, path.stabilization || 0)}
                       stroke={path.color}
                       strokeWidth={path.size}
                       strokeLinecap="round"
@@ -1145,7 +1670,7 @@ export default function ColoringGame() {
               {currentPath && currentPath.map((path, i) => path.points.length > 1 && (
                 <path
                   key={i}
-                  d={smoothPath(path.points)}
+                  d={smoothPath(path.points, brushStabilization)}
                   stroke={path.color}
                   strokeWidth={path.size}
                   strokeLinecap="round"
@@ -1181,8 +1706,8 @@ export default function ColoringGame() {
           </div>
         </div>
 
-        {/* Right Sidebar - Layers (desktop) */}
-        {!isMobile && (
+        {/* Right Sidebar - Layers (desktop) - hidden in focus mode */}
+        {!isMobile && !focusMode && (
           <div className={`w-56 ${theme.panel} border-l ${theme.border} flex flex-col overflow-hidden`}>
             <div className={`flex items-center justify-between p-2 border-b ${theme.border}`}>
               <span className={`text-xs font-medium ${theme.textMuted}`}>Layers</span>
@@ -1307,7 +1832,8 @@ export default function ColoringGame() {
         </div>
       )}
 
-      {/* Status Bar */}
+      {/* Status Bar - hidden in focus mode */}
+      {!focusMode && (
       <div className={`flex items-center justify-between px-3 py-1 text-xs ${theme.panel} ${theme.textMuted} border-t ${theme.border}`}>
         <div className="flex items-center gap-3">
           <span>{drawing.icon} {drawing.name}</span>
@@ -1320,6 +1846,7 @@ export default function ColoringGame() {
           <span>{Math.round(zoom * 100)}%</span>
         </div>
       </div>
+      )}
 
       {/* Export Modal */}
       {showExportModal && (
