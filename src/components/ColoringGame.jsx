@@ -868,8 +868,12 @@ export default function ColoringGame() {
   const [colorOpacity, setColorOpacity] = useState(1);
   const [filledColors, setFilledColors] = useState({});
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => {
+    const saved = localStorage.getItem('calmDrawing_zoom');
+    return saved ? parseFloat(saved) : 1;
+  });
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [hasInitializedZoom, setHasInitializedZoom] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Tool state
@@ -981,6 +985,45 @@ export default function ColoringGame() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // QW2: Save zoom to localStorage when it changes
+  useEffect(() => {
+    if (hasInitializedZoom) {
+      localStorage.setItem('calmDrawing_zoom', zoom.toString());
+    }
+  }, [zoom, hasInitializedZoom]);
+
+  // QW4: Calculate and set optimal zoom on first load
+  useEffect(() => {
+    if (hasInitializedZoom) return;
+
+    // Only auto-fit if no saved zoom preference
+    const savedZoom = localStorage.getItem('calmDrawing_zoom');
+    if (savedZoom) {
+      setHasInitializedZoom(true);
+      return;
+    }
+
+    // Calculate optimal zoom to fit canvas
+    const sidebarW = window.innerWidth < 768 ? 0 : (focusMode ? 0 : 224 * 2);
+    const headerH = focusMode ? 0 : 52;
+    const statusH = focusMode ? 0 : 28;
+    const pad = window.innerWidth < 768 ? 8 : 16;
+
+    const availW = window.innerWidth - sidebarW - pad * 2;
+    const availH = window.innerHeight - headerH - statusH - pad * 2;
+
+    const baseWidth = 420;
+    const baseHeight = 300;
+
+    // Calculate zoom to fit with some margin (90% of available space)
+    const zoomToFitW = (availW * 0.9) / baseWidth;
+    const zoomToFitH = (availH * 0.9) / baseHeight;
+    const optimalZoom = Math.min(zoomToFitW, zoomToFitH, 2); // Cap at 2x
+
+    setZoom(Math.max(0.5, Math.round(optimalZoom * 4) / 4)); // Round to nearest 0.25
+    setHasInitializedZoom(true);
+  }, [focusMode, hasInitializedZoom]);
 
   // Session timer
   useEffect(() => {
@@ -1531,6 +1574,30 @@ export default function ColoringGame() {
     }
   };
 
+  // ============ VIEW CONTROLS ============
+
+  // QW3: Fit-to-Screen function
+  const fitToScreen = useCallback(() => {
+    const sidebarW = isMobile ? 0 : (focusMode ? 0 : 224 * 2);
+    const headerH = focusMode ? 0 : 52;
+    const statusH = focusMode ? 0 : 28;
+    const pad = isMobile ? 8 : 16;
+
+    const availW = windowSize.width - sidebarW - pad * 2;
+    const availH = windowSize.height - headerH - statusH - pad * 2;
+
+    const baseWidth = 420;
+    const baseHeight = 300;
+
+    // Calculate zoom to fit with some margin (95% of available space)
+    const zoomToFitW = (availW * 0.95) / baseWidth;
+    const zoomToFitH = (availH * 0.95) / baseHeight;
+    const optimalZoom = Math.min(zoomToFitW, zoomToFitH, 4); // Cap at 4x
+
+    setZoom(Math.max(0.25, Math.round(optimalZoom * 4) / 4)); // Round to nearest 0.25
+    setPan({ x: 0, y: 0 }); // Center the canvas
+  }, [isMobile, focusMode, windowSize]);
+
   // ============ EXPORT ============
 
   const saveArtwork = async (format = exportFormat, quality = exportQuality) => {
@@ -1746,9 +1813,11 @@ export default function ColoringGame() {
 
           <div className={`w-px h-6 mx-1 ${theme.border}`} />
 
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`}>−</button>
+          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom Out">−</button>
           <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`}>+</button>
+          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom In">+</button>
+          <button onClick={fitToScreen} className={`p-1 rounded ${theme.hover} text-xs`} title="Fit to Screen">⛶</button>
+          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className={`p-1 rounded ${theme.hover} text-xs`} title="Reset View (100%)">1:1</button>
 
           <div className={`w-px h-6 mx-1 ${theme.border}`} />
 
