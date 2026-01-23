@@ -99,6 +99,68 @@ const breathingPatterns = [
   { id: 'energize', name: 'Energizing', inhale: 4, hold1: 0, exhale: 4, hold2: 0 },
 ];
 
+// Daily drawing prompts for inspiration
+const dailyPrompts = [
+  // Emotion & Abstract
+  { text: "Draw how you feel right now", category: "emotion", icon: "💭" },
+  { text: "Visualize your dreams from last night", category: "abstract", icon: "🌙" },
+  { text: "What does peace look like to you?", category: "emotion", icon: "☮️" },
+  { text: "Draw your happy place", category: "memory", icon: "😊" },
+  { text: "Illustrate a song you love", category: "abstract", icon: "🎵" },
+  { text: "What color is your mood today?", category: "emotion", icon: "🎨" },
+  { text: "Draw energy and movement", category: "abstract", icon: "⚡" },
+  { text: "Visualize calm waters", category: "mindful", icon: "🌊" },
+  { text: "Create patterns that soothe you", category: "mindful", icon: "🔮" },
+  { text: "Draw what gratitude feels like", category: "emotion", icon: "🙏" },
+  // Nature
+  { text: "A tree in different seasons", category: "nature", icon: "🌳" },
+  { text: "Your favorite flower in detail", category: "nature", icon: "🌸" },
+  { text: "A sunset you remember", category: "nature", icon: "🌅" },
+  { text: "Mountains touching clouds", category: "nature", icon: "🏔️" },
+  { text: "Ocean waves crashing", category: "nature", icon: "🌊" },
+  { text: "A garden at midnight", category: "nature", icon: "🌙" },
+  { text: "Rain on a window", category: "nature", icon: "🌧️" },
+  { text: "Autumn leaves falling", category: "nature", icon: "🍂" },
+  { text: "A bird in flight", category: "nature", icon: "🦅" },
+  { text: "Moonlight on water", category: "nature", icon: "🌕" },
+  // Memory & Personal
+  { text: "Your childhood bedroom", category: "memory", icon: "🛏️" },
+  { text: "A meal that brings comfort", category: "memory", icon: "🍲" },
+  { text: "Someone who inspires you", category: "memory", icon: "✨" },
+  { text: "A place you want to visit", category: "memory", icon: "✈️" },
+  { text: "Your morning routine", category: "memory", icon: "☀️" },
+  { text: "A gift you treasure", category: "memory", icon: "🎁" },
+  { text: "Your favorite season", category: "memory", icon: "🗓️" },
+  { text: "A book that changed you", category: "memory", icon: "📚" },
+  // Challenge
+  { text: "Draw using only circles", category: "challenge", icon: "⭕" },
+  { text: "Create with just 3 colors", category: "challenge", icon: "🎨" },
+  { text: "Draw without lifting your pen", category: "challenge", icon: "✏️" },
+  { text: "Fill the page with tiny patterns", category: "challenge", icon: "🔲" },
+  { text: "Draw the same thing 9 ways", category: "challenge", icon: "9️⃣" },
+  { text: "Use only straight lines", category: "challenge", icon: "📏" },
+  { text: "Create a symmetrical design", category: "challenge", icon: "🔄" },
+  { text: "Draw with your non-dominant hand", category: "challenge", icon: "🤚" },
+  // Mindful
+  { text: "Slow, deliberate spiral", category: "mindful", icon: "🌀" },
+  { text: "Meditative repeated shapes", category: "mindful", icon: "🔷" },
+  { text: "Breath-synchronized strokes", category: "mindful", icon: "🫁" },
+  { text: "Zentangle-inspired patterns", category: "mindful", icon: "✴️" },
+  { text: "Mandala from the center out", category: "mindful", icon: "🔆" },
+  { text: "Flowing water-like lines", category: "mindful", icon: "〰️" },
+  { text: "Gentle gradients of color", category: "mindful", icon: "🌈" },
+  { text: "Repetitive calming marks", category: "mindful", icon: "|||" },
+  // Random/Creative
+  { text: "A door to another world", category: "creative", icon: "🚪" },
+  { text: "What lives in the clouds?", category: "creative", icon: "☁️" },
+  { text: "An impossible architecture", category: "creative", icon: "🏛️" },
+  { text: "Merge two animals into one", category: "creative", icon: "🦄" },
+  { text: "A map of an imaginary place", category: "creative", icon: "🗺️" },
+  { text: "Objects with personalities", category: "creative", icon: "🎭" },
+  { text: "Time as a visual concept", category: "creative", icon: "⏰" },
+  { text: "Music as shapes and colors", category: "creative", icon: "🎼" },
+];
+
 const drawings = [
   {
     name: 'Bunny', icon: '🐰',
@@ -183,6 +245,164 @@ const drawings = [
       { id: 'heart', d: 'M210 280 Q100 200 100 120 Q100 60 160 60 Q210 60 210 120 Q210 60 260 60 Q320 60 320 120 Q320 200 210 280' },
       { id: 'shine1', d: 'M140 100 Q150 80 160 100 Q150 90 140 100' },
       { id: 'shine2', d: 'M130 130 Q135 120 140 130' },
+    ]
+  },
+  // === MATURE TEMPLATES ===
+  {
+    name: 'Mandala', icon: '🔆',
+    paths: [
+      // Outer ring
+      { id: 'outer-ring', d: 'M210 30 A120 120 0 1 1 209 30 Z' },
+      { id: 'ring-2', d: 'M210 50 A100 100 0 1 1 209 50 Z' },
+      { id: 'ring-3', d: 'M210 70 A80 80 0 1 1 209 70 Z' },
+      { id: 'ring-4', d: 'M210 90 A60 60 0 1 1 209 90 Z' },
+      { id: 'center', d: 'M210 110 A40 40 0 1 1 209 110 Z' },
+      { id: 'core', d: 'M210 130 A20 20 0 1 1 209 130 Z' },
+      // Petals (8-way symmetry)
+      { id: 'petal-n', d: 'M210 50 Q230 80 210 110 Q190 80 210 50' },
+      { id: 'petal-ne', d: 'M295 65 Q280 100 250 110 Q280 90 295 65' },
+      { id: 'petal-e', d: 'M330 150 Q290 150 250 150 Q290 170 330 150' },
+      { id: 'petal-se', d: 'M295 235 Q280 200 250 190 Q280 210 295 235' },
+      { id: 'petal-s', d: 'M210 250 Q230 220 210 190 Q190 220 210 250' },
+      { id: 'petal-sw', d: 'M125 235 Q140 200 170 190 Q140 210 125 235' },
+      { id: 'petal-w', d: 'M90 150 Q130 150 170 150 Q130 170 90 150' },
+      { id: 'petal-nw', d: 'M125 65 Q140 100 170 110 Q140 90 125 65' },
+    ]
+  },
+  {
+    name: 'Lotus', icon: '🪷',
+    paths: [
+      // Center
+      { id: 'center', d: 'M210 150 m-20 0 a20 20 0 1 0 40 0 a20 20 0 1 0 -40 0' },
+      // Inner petals
+      { id: 'inner-1', d: 'M210 130 Q180 100 210 60 Q240 100 210 130' },
+      { id: 'inner-2', d: 'M230 145 Q270 130 290 150 Q270 170 230 155' },
+      { id: 'inner-3', d: 'M230 165 Q260 200 230 230 Q210 200 230 165' },
+      { id: 'inner-4', d: 'M190 165 Q160 200 190 230 Q210 200 190 165' },
+      { id: 'inner-5', d: 'M190 145 Q150 130 130 150 Q150 170 190 155' },
+      // Outer petals
+      { id: 'outer-1', d: 'M210 60 Q160 40 210 10 Q260 40 210 60' },
+      { id: 'outer-2', d: 'M290 150 Q320 110 350 150 Q320 190 290 150' },
+      { id: 'outer-3', d: 'M230 230 Q250 270 210 290 Q170 270 190 230' },
+      { id: 'outer-4', d: 'M130 150 Q100 110 70 150 Q100 190 130 150' },
+      // Base
+      { id: 'base', d: 'M140 250 Q210 270 280 250 Q250 280 210 285 Q170 280 140 250' },
+    ]
+  },
+  {
+    name: 'Zen Circle', icon: '⭕',
+    paths: [
+      { id: 'enso', d: 'M100 150 A110 110 0 1 1 95 145 M95 145 Q90 155 100 150' },
+      { id: 'inner-1', d: 'M150 150 A60 60 0 1 1 148 150' },
+      { id: 'inner-2', d: 'M180 150 A30 30 0 1 1 178 150' },
+      { id: 'dot', d: 'M205 150 A5 5 0 1 1 204 150' },
+    ]
+  },
+  {
+    name: 'Mountains', icon: '🏔️',
+    paths: [
+      // Sky
+      { id: 'sky', d: 'M0 0 L420 0 L420 150 L0 150 Z' },
+      // Far mountains
+      { id: 'mountain-far-1', d: 'M0 180 L80 80 L160 180 Z' },
+      { id: 'mountain-far-2', d: 'M120 180 L210 60 L300 180 Z' },
+      { id: 'mountain-far-3', d: 'M260 180 L350 90 L420 180 Z' },
+      // Snow caps
+      { id: 'snow-1', d: 'M80 80 L60 120 L100 120 Z' },
+      { id: 'snow-2', d: 'M210 60 L180 110 L240 110 Z' },
+      { id: 'snow-3', d: 'M350 90 L330 130 L370 130 Z' },
+      // Foreground
+      { id: 'ground', d: 'M0 180 L420 180 L420 300 L0 300 Z' },
+      // Trees
+      { id: 'tree-1', d: 'M50 280 L60 220 L70 280 Z' },
+      { id: 'tree-2', d: 'M100 280 L115 200 L130 280 Z' },
+      { id: 'tree-3', d: 'M320 280 L335 210 L350 280 Z' },
+      // Lake
+      { id: 'lake', d: 'M150 230 Q210 200 280 230 Q280 280 210 290 Q140 280 150 230' },
+    ]
+  },
+  {
+    name: 'Wave', icon: '🌊',
+    paths: [
+      // Great wave inspired
+      { id: 'wave-main', d: 'M20 200 Q80 100 150 120 Q220 140 250 80 Q280 20 320 60 Q360 100 400 80' },
+      { id: 'wave-curl', d: 'M250 80 Q270 90 280 110 Q260 100 250 80' },
+      { id: 'wave-2', d: 'M30 220 Q100 180 180 200 Q260 220 340 180 Q380 160 410 170' },
+      { id: 'wave-3', d: 'M20 250 Q120 230 220 250 Q320 270 400 240' },
+      // Foam
+      { id: 'foam-1', d: 'M280 110 Q290 115 285 125 Q275 120 280 110' },
+      { id: 'foam-2', d: 'M295 105 Q305 110 300 120 Q290 115 295 105' },
+      { id: 'foam-3', d: 'M310 100 Q320 105 315 115 Q305 110 310 100' },
+      // Spray
+      { id: 'spray-1', d: 'M260 70 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0' },
+      { id: 'spray-2', d: 'M275 55 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0' },
+      { id: 'spray-3', d: 'M245 60 m-3 0 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0' },
+    ]
+  },
+  {
+    name: 'Tree of Life', icon: '🌳',
+    paths: [
+      // Trunk
+      { id: 'trunk', d: 'M190 280 Q195 200 180 150 Q210 130 240 150 Q225 200 230 280 Z' },
+      // Roots
+      { id: 'root-1', d: 'M190 280 Q150 290 120 280 Q140 270 190 280' },
+      { id: 'root-2', d: 'M200 285 Q200 300 180 300 Q190 290 200 285' },
+      { id: 'root-3', d: 'M220 285 Q220 300 240 300 Q230 290 220 285' },
+      { id: 'root-4', d: 'M230 280 Q270 290 300 280 Q280 270 230 280' },
+      // Branches
+      { id: 'branch-1', d: 'M180 150 Q120 120 80 80' },
+      { id: 'branch-2', d: 'M185 140 Q150 100 130 50' },
+      { id: 'branch-3', d: 'M200 130 Q200 80 210 30' },
+      { id: 'branch-4', d: 'M225 140 Q260 100 290 50' },
+      { id: 'branch-5', d: 'M240 150 Q300 120 340 80' },
+      // Leaves/canopy circles
+      { id: 'canopy-1', d: 'M80 80 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
+      { id: 'canopy-2', d: 'M130 50 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
+      { id: 'canopy-3', d: 'M210 30 m-30 0 a30 30 0 1 0 60 0 a30 30 0 1 0 -60 0' },
+      { id: 'canopy-4', d: 'M290 50 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
+      { id: 'canopy-5', d: 'M340 80 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
+    ]
+  },
+  {
+    name: 'Geometric', icon: '🔷',
+    paths: [
+      // Hexagon pattern
+      { id: 'hex-center', d: 'M210 150 L240 130 L270 150 L270 180 L240 200 L210 180 Z' },
+      { id: 'hex-1', d: 'M180 130 L210 110 L240 130 L240 160 L210 180 L180 160 Z' },
+      { id: 'hex-2', d: 'M240 130 L270 110 L300 130 L300 160 L270 180 L240 160 Z' },
+      { id: 'hex-3', d: 'M150 150 L180 130 L210 150 L210 180 L180 200 L150 180 Z' },
+      { id: 'hex-4', d: 'M270 150 L300 130 L330 150 L330 180 L300 200 L270 180 Z' },
+      { id: 'hex-5', d: 'M180 200 L210 180 L240 200 L240 230 L210 250 L180 230 Z' },
+      { id: 'hex-6', d: 'M240 200 L270 180 L300 200 L300 230 L270 250 L240 230 Z' },
+      // Inner triangles
+      { id: 'tri-1', d: 'M210 90 L180 130 L240 130 Z' },
+      { id: 'tri-2', d: 'M210 250 L180 210 L240 210 Z' },
+    ]
+  },
+  {
+    name: 'Rose', icon: '🌹',
+    paths: [
+      // Center bud
+      { id: 'center', d: 'M210 130 Q200 140 210 150 Q220 140 210 130' },
+      // Inner petals
+      { id: 'petal-i1', d: 'M210 130 Q180 120 190 100 Q210 110 210 130' },
+      { id: 'petal-i2', d: 'M210 130 Q240 120 230 100 Q210 110 210 130' },
+      { id: 'petal-i3', d: 'M210 150 Q190 160 185 140 Q200 145 210 150' },
+      { id: 'petal-i4', d: 'M210 150 Q230 160 235 140 Q220 145 210 150' },
+      // Middle petals
+      { id: 'petal-m1', d: 'M190 100 Q150 90 140 120 Q160 130 190 100' },
+      { id: 'petal-m2', d: 'M230 100 Q270 90 280 120 Q260 130 230 100' },
+      { id: 'petal-m3', d: 'M185 140 Q150 150 145 180 Q170 170 185 140' },
+      { id: 'petal-m4', d: 'M235 140 Q270 150 275 180 Q250 170 235 140' },
+      // Outer petals
+      { id: 'petal-o1', d: 'M140 120 Q100 100 90 140 Q110 160 145 180' },
+      { id: 'petal-o2', d: 'M280 120 Q320 100 330 140 Q310 160 275 180' },
+      { id: 'petal-o3', d: 'M145 180 Q120 200 140 230 Q170 220 200 190' },
+      { id: 'petal-o4', d: 'M275 180 Q300 200 280 230 Q250 220 220 190' },
+      // Stem
+      { id: 'stem', d: 'M210 190 Q205 220 200 280' },
+      { id: 'leaf-1', d: 'M200 230 Q160 220 150 240 Q170 250 200 240' },
+      { id: 'leaf-2', d: 'M205 260 Q240 250 250 270 Q230 280 205 270' },
     ]
   },
   { name: 'Free Draw', icon: '✏️', paths: [] },
@@ -466,6 +686,16 @@ export default function ColoringGame() {
   // Ambient Sound Mixer
   const [activeSounds, setActiveSounds] = useState({});
   const [masterVolume, setMasterVolume] = useState(0.7);
+
+  // Daily Prompts
+  const [showDailyPrompt, setShowDailyPrompt] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState(() => {
+    // Get daily prompt based on date
+    const today = new Date();
+    const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
+    return dailyPrompts[dayOfYear % dailyPrompts.length];
+  });
+  const [promptDismissed, setPromptDismissed] = useState(false);
 
   // History (undo/redo)
   const [history, setHistory] = useState([]);
@@ -1191,6 +1421,9 @@ export default function ColoringGame() {
           <button onClick={() => setShowBreathing(!showBreathing)} className={`p-1.5 rounded-lg ${showBreathing ? 'bg-blue-500 text-white' : theme.hover}`} title="Breathing Exercise">
             🫁
           </button>
+          <button onClick={() => setShowDailyPrompt(!showDailyPrompt)} className={`p-1.5 rounded-lg ${showDailyPrompt ? 'bg-yellow-500 text-white' : theme.hover}`} title="Daily Prompt">
+            💡
+          </button>
           <button onClick={() => setFocusMode(!focusMode)} className={`p-1.5 rounded-lg ${focusMode ? 'bg-purple-500 text-white' : theme.hover}`} title="Focus Mode (F)">
             {focusMode ? '🎯' : '👁️'}
           </button>
@@ -1395,6 +1628,60 @@ export default function ColoringGame() {
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Prompt Panel */}
+      {showDailyPrompt && (
+        <div className="fixed bottom-20 left-4 z-40">
+          <div className={`${theme.panel} rounded-2xl shadow-2xl border ${theme.border} p-4 w-72`}>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-medium">💡 Today's Prompt</span>
+              <button onClick={() => setShowDailyPrompt(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+
+            <div className="text-center mb-4">
+              <div className="text-3xl mb-2">{currentPrompt.icon}</div>
+              <p className={`text-base font-medium ${theme.text}`}>"{currentPrompt.text}"</p>
+              <span className={`text-xs ${theme.textMuted} capitalize`}>{currentPrompt.category}</span>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const randomIndex = Math.floor(Math.random() * dailyPrompts.length);
+                  setCurrentPrompt(dailyPrompts[randomIndex]);
+                }}
+                className={`flex-1 py-2 rounded-lg text-sm ${theme.hover} border ${theme.border}`}
+              >
+                🔄 New Prompt
+              </button>
+              <button
+                onClick={() => { setShowDailyPrompt(false); }}
+                className="flex-1 py-2 rounded-lg text-sm bg-purple-500 text-white"
+              >
+                Start Drawing
+              </button>
+            </div>
+
+            <div className={`mt-3 pt-3 border-t ${theme.border}`}>
+              <div className={`text-xs ${theme.textMuted} mb-2`}>Categories</div>
+              <div className="flex flex-wrap gap-1">
+                {['emotion', 'nature', 'memory', 'challenge', 'mindful', 'creative'].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      const filtered = dailyPrompts.filter(p => p.category === cat);
+                      setCurrentPrompt(filtered[Math.floor(Math.random() * filtered.length)]);
+                    }}
+                    className={`px-2 py-0.5 rounded-full text-xs capitalize ${theme.hover} border ${theme.border}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
