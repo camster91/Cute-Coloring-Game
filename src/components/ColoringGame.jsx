@@ -1176,56 +1176,171 @@ export default function ColoringGame() {
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden select-none ${theme.bg} ${theme.text}`}>
-      {/* Focus Mode Floating Toolbar */}
+      {/* Focus Mode - Zen Drawing Experience */}
       {focusMode && (
-        <div
-          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 ${theme.panel} rounded-full shadow-lg px-4 py-2 flex items-center gap-3 opacity-30 hover:opacity-100 transition-opacity`}
-        >
-          <span className="text-sm font-medium">Focus Mode</span>
-          <div className={`w-px h-4 ${theme.border}`} />
-          {[
-            { id: 'brush', icon: '🖌️' },
-            { id: 'eraser', icon: '🧽' },
-          ].map(tool => (
-            <button
-              key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
-              className={`p-1 rounded ${activeTool === tool.id ? 'bg-purple-500 text-white' : theme.hover}`}
-            >
-              {tool.icon}
-            </button>
-          ))}
-          <div className={`w-px h-4 ${theme.border}`} />
-          <div className="flex items-center gap-1">
-            <button onClick={() => setBrushSize(s => Math.max(2, s - 4))} className={`text-sm px-1 ${theme.hover} rounded`}>−</button>
-            <span className="text-xs w-6 text-center">{brushSize}</span>
-            <button onClick={() => setBrushSize(s => Math.min(80, s + 4))} className={`text-sm px-1 ${theme.hover} rounded`}>+</button>
-          </div>
+        <>
+          {/* Minimal floating toolbar - appears on hover at top */}
           <div
-            className="w-6 h-6 rounded-full border-2 border-white shadow cursor-pointer"
-            style={{ backgroundColor: selectedColor }}
-            onClick={() => setActivePanel(activePanel === 'focusColors' ? null : 'focusColors')}
-          />
-          <button onClick={() => setFocusMode(false)} className={`p-1 rounded ${theme.hover}`} title="Exit Focus Mode (Esc)">
-            ✕
-          </button>
-        </div>
-      )}
+            className={`
+              fixed top-0 left-0 right-0 z-50
+              flex justify-center pt-3
+              opacity-0 hover:opacity-100
+              transition-all duration-500
+            `}
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, transparent 100%)' }}
+          >
+            <div className={`
+              ${darkMode ? 'bg-gray-900/90' : 'bg-white/90'}
+              backdrop-blur-xl rounded-2xl shadow-2xl
+              px-4 py-2.5 flex items-center gap-3
+              border ${darkMode ? 'border-white/10' : 'border-gray-200/50'}
+            `}>
+              {/* Tools */}
+              <div className="flex items-center gap-1">
+                {[
+                  { id: 'brush', icon: '✏️', label: 'Brush' },
+                  { id: 'eraser', icon: '🧽', label: 'Eraser' },
+                  { id: 'fill', icon: '🪣', label: 'Fill' },
+                ].map(tool => (
+                  <button
+                    key={tool.id}
+                    onClick={() => setActiveTool(tool.id)}
+                    className={`
+                      w-9 h-9 rounded-xl flex items-center justify-center text-lg
+                      transition-all duration-200
+                      ${activeTool === tool.id
+                        ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg scale-110'
+                        : `${theme.hover}`
+                      }
+                    `}
+                    title={tool.label}
+                  >
+                    {tool.icon}
+                  </button>
+                ))}
+              </div>
 
-      {/* Focus Mode Color Picker */}
-      {focusMode && activePanel === 'focusColors' && (
-        <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 ${theme.panel} rounded-xl shadow-lg p-3`}>
-          <div className="grid grid-cols-5 gap-1">
-            {colorPalettes[currentPalette].map(color => (
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Brush Size */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="2"
+                  max="80"
+                  value={brushSize}
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                  className="w-20 accent-indigo-500"
+                />
+                <span className={`text-xs font-medium w-8 ${theme.textMuted}`}>{brushSize}px</span>
+              </div>
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Color */}
               <button
-                key={color}
-                onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
-                className={`w-8 h-8 rounded-lg ${selectedColor === color ? 'ring-2 ring-purple-500' : ''}`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
+                onClick={() => setActivePanel(activePanel === 'focusColors' ? null : 'focusColors')}
+                className="relative group"
+              >
+                <div
+                  className="w-8 h-8 rounded-xl border-2 border-white shadow-lg cursor-pointer
+                    transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: selectedColor }}
+                />
+              </button>
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Undo/Redo */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme.hover} disabled:opacity-30`}
+                  title="Undo"
+                >
+                  ↩
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme.hover} disabled:opacity-30`}
+                  title="Redo"
+                >
+                  ↪
+                </button>
+              </div>
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Exit */}
+              <button
+                onClick={() => setFocusMode(false)}
+                className={`
+                  px-3 py-1.5 rounded-lg text-xs font-medium
+                  ${theme.hover} transition-all
+                `}
+                title="Exit Focus Mode (Esc)"
+              >
+                Exit
+              </button>
+            </div>
           </div>
-        </div>
+
+          {/* Focus Mode Color Picker */}
+          {activePanel === 'focusColors' && (
+            <div className={`
+              fixed top-20 left-1/2 transform -translate-x-1/2 z-50
+              ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'}
+              backdrop-blur-xl rounded-2xl shadow-2xl
+              p-4 border ${darkMode ? 'border-white/10' : 'border-gray-200/50'}
+            `}>
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                {colorPalettes[currentPalette].map(color => (
+                  <button
+                    key={color}
+                    onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
+                    className={`
+                      w-10 h-10 rounded-xl transition-all
+                      hover:scale-110 active:scale-95
+                      ${selectedColor === color ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+                    `}
+                    style={{
+                      backgroundColor: color,
+                      boxShadow: `0 4px 12px ${color}40`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Recent colors */}
+              {recentColors.length > 0 && (
+                <div className={`pt-3 border-t ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+                  <div className={`text-[10px] ${theme.textMuted} mb-2`}>Recent</div>
+                  <div className="flex gap-1.5">
+                    {recentColors.slice(0, 5).map((color, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
+                        className="w-7 h-7 rounded-lg transition-all hover:scale-110"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtle hint at bottom */}
+          <div className={`
+            fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40
+            text-xs ${theme.textMuted}
+            opacity-30 hover:opacity-70 transition-opacity
+          `}>
+            Press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-mono text-[10px]">Esc</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-mono text-[10px]">F</kbd> to exit • Two-finger tap to undo
+          </div>
+        </>
       )}
 
       {/* Top Bar - Simplified, clean header */}
