@@ -53,6 +53,15 @@ const shapeTools = [
   { id: 'heart', name: 'Heart', icon: '♥️' },
 ];
 
+// Font families for text tool
+const fontFamilies = [
+  { id: 'sans', name: 'Sans Serif', value: 'system-ui, sans-serif' },
+  { id: 'serif', name: 'Serif', value: 'Georgia, serif' },
+  { id: 'mono', name: 'Monospace', value: 'Consolas, monospace' },
+  { id: 'cursive', name: 'Cursive', value: 'Brush Script MT, cursive' },
+  { id: 'comic', name: 'Comic', value: 'Comic Sans MS, cursive' },
+];
+
 // Symmetry modes
 const symmetryModes = [
   { id: 'none', name: 'Off', icon: '⊘', lines: 0 },
@@ -246,6 +255,13 @@ export default function ColoringGame() {
   const [shapeFill, setShapeFill] = useState(true);
   const [symmetryMode, setSymmetryMode] = useState(symmetryModes[0]);
 
+  // Text tool state
+  const [textInput, setTextInput] = useState('');
+  const [fontSize, setFontSize] = useState(24);
+  const [fontFamily, setFontFamily] = useState(fontFamilies[0]);
+  const [textPosition, setTextPosition] = useState(null);
+  const [isEditingText, setIsEditingText] = useState(false);
+
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -294,6 +310,9 @@ export default function ColoringGame() {
   const lazyBrushPosRef = useRef({ x: 0, y: 0 }); // Current brush position
   const [lazyBrushIndicator, setLazyBrushIndicator] = useState(null); // Visual indicator
 
+  // Palm rejection (prioritize pen input, reject large touch areas)
+  const [palmRejection, setPalmRejection] = useState(true);
+
   // Brush cursor preview
   const [cursorPosition, setCursorPosition] = useState(null);
 
@@ -332,6 +351,7 @@ export default function ColoringGame() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState('png');
   const [exportQuality, setExportQuality] = useState(2);
+  const [exportTransparent, setExportTransparent] = useState(false);
 
   // Window size and responsive breakpoints
   const [windowSize, setWindowSize] = useState({ width: 800, height: 600 });
@@ -732,7 +752,7 @@ export default function ColoringGame() {
 
   const getPointerPosition = useCallback((e) => {
     const svg = canvasRef.current;
-    if (!svg) return { x: 0, y: 0 };
+    if (!svg) return { x: 0, y: 0, pressure: 0.5, tiltX: 0, tiltY: 0 };
 
     const rect = svg.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -746,7 +766,14 @@ export default function ColoringGame() {
       y = Math.round(y / gridSize) * gridSize;
     }
 
-    return { x, y };
+    // Extract stylus pressure and tilt from Pointer Events API
+    // pressure: 0-1 range (0.5 default for mouse, varies for stylus)
+    // tiltX/tiltY: -90 to 90 degrees
+    const pressure = e.pressure !== undefined ? e.pressure : 0.5;
+    const tiltX = e.tiltX || 0;
+    const tiltY = e.tiltY || 0;
+
+    return { x, y, pressure, tiltX, tiltY };
   }, [snapToGrid, gridSize]);
 
   const generateSymmetricPoints = useCallback((point, mode) => {
@@ -778,6 +805,13 @@ export default function ColoringGame() {
 
   const handlePointerDown = useCallback((e) => {
     if (isPanning) return;
+
+    // Palm rejection: prioritize pen, reject large touch contact areas
+    if (palmRejection && e.pointerType === 'touch') {
+      // Reject if touch area is too large (likely palm)
+      const touchSize = Math.max(e.width || 0, e.height || 0);
+      if (touchSize > 40) return; // Large contact = palm
+    }
 
     const pos = getPointerPosition(e);
     const layer = getActiveLayer();
@@ -823,6 +857,12 @@ export default function ColoringGame() {
         strokeWidth: Math.max(2, brushSize / 4),
         opacity: colorOpacity
       });
+    } else if (activeTool === 'text') {
+      // Text tool: set position for text input
+      e.preventDefault();
+      setTextPosition(pos);
+      setIsEditingText(true);
+      setTextInput('');
     } else if (activeTool === 'eyedropper') {
       // Pick color from canvas using pixel sampling
       e.preventDefault();
@@ -857,7 +897,7 @@ export default function ColoringGame() {
         setActiveTool('brush');
       }
     }
-  }, [isPanning, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors]);
+  }, [isPanning, palmRejection, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors]);
 
   const handlePointerMove = useCallback((e) => {
     // Always track cursor position for brush preview
@@ -905,7 +945,7 @@ export default function ColoringGame() {
         setLazyBrushIndicator({ cursor: pos, brush: drawPos });
       }
 
-      // Calculate speed-based size variation
+      // Calculate pressure-based and speed-based size variation
       const now = Date.now();
       const timeDelta = now - lastTimeRef.current;
       const lastPos = lastPointRef.current;
@@ -914,14 +954,31 @@ export default function ColoringGame() {
         const distance = Math.sqrt(Math.pow(drawPos.x - lastPos.x, 2) + Math.pow(drawPos.y - lastPos.y, 2));
         const speed = distance / timeDelta;
 
-        // Vary size based on speed (faster = thinner for calligraphy effect)
+        // Speed-based variation (faster = thinner for calligraphy effect)
         const speedFactor = Math.max(brushType.minSize, Math.min(brushType.maxSize, 1 - speed * 0.5));
+
+        // Use real stylus pressure if available (pressure > 0 and not default 0.5)
+        // Combine with speed factor for dynamic strokes
+        const realPressure = pos.pressure;
+        const hasRealPressure = realPressure > 0 && realPressure !== 0.5;
+
+        // Final pressure combines real pressure (if available) with speed variation
+        // Real pressure: directly affects stroke width
+        // Speed factor: adds calligraphy-like variation
+        const finalPressure = hasRealPressure
+          ? realPressure * speedFactor  // Real stylus: multiply pressure by speed factor
+          : speedFactor;                 // Mouse/touch: use speed factor only
 
         const symmetricPoints = generateSymmetricPoints(drawPos, symmetryMode);
 
         setCurrentPath(prev => prev.map((path, i) => ({
           ...path,
-          points: [...path.points, { ...symmetricPoints[i], pressure: speedFactor }]
+          points: [...path.points, {
+            ...symmetricPoints[i],
+            pressure: finalPressure,
+            tiltX: pos.tiltX,
+            tiltY: pos.tiltY
+          }]
         })));
       }
 
@@ -976,6 +1033,39 @@ export default function ColoringGame() {
     saveToHistory();
     setLayers(prev => prev.map(l => ({ ...l, paths: [] })));
   };
+
+  // Confirm text input and add to layer
+  const confirmText = useCallback(() => {
+    if (!textInput.trim() || !textPosition) {
+      setIsEditingText(false);
+      setTextPosition(null);
+      return;
+    }
+
+    saveToHistory();
+
+    const textElement = {
+      id: `text-${Date.now()}`,
+      type: 'text',
+      text: textInput,
+      x: textPosition.x,
+      y: textPosition.y,
+      fontSize,
+      fontFamily: fontFamily.value,
+      color: selectedColor,
+      opacity: colorOpacity,
+    };
+
+    setLayers(prev => prev.map(l =>
+      l.id === activeLayerId
+        ? { ...l, paths: [...l.paths, textElement] }
+        : l
+    ));
+
+    setIsEditingText(false);
+    setTextPosition(null);
+    setTextInput('');
+  }, [textInput, textPosition, fontSize, fontFamily, selectedColor, colorOpacity, activeLayerId, saveToHistory]);
 
   // ============ SHAPE PATH GENERATION ============
 
@@ -1046,12 +1136,18 @@ export default function ColoringGame() {
 
   // ============ EXPORT ============
 
-  const saveArtwork = async (format = exportFormat, quality = exportQuality) => {
+  const saveArtwork = async (format = exportFormat, quality = exportQuality, transparent = exportTransparent) => {
     if (!canvasRef.current || isSaving) return;
     setIsSaving(true);
 
     try {
-      const svg = canvasRef.current;
+      const svg = canvasRef.current.cloneNode(true);
+
+      // For transparent export, remove background
+      if (transparent && format === 'png') {
+        svg.style.backgroundColor = 'transparent';
+      }
+
       const svgData = new XMLSerializer().serializeToString(svg);
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
 
@@ -1075,8 +1171,13 @@ export default function ColoringGame() {
         canvas.width = 420 * scale;
         canvas.height = 300 * scale;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = backgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Only fill background if not transparent (or if JPG which doesn't support transparency)
+        if (!transparent || format === 'jpg') {
+          ctx.fillStyle = backgroundColor;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob((blob) => {
@@ -1691,6 +1792,13 @@ export default function ColoringGame() {
                   setLazyBrushEnabled={setLazyBrushEnabled}
                   lazyBrushRadius={lazyBrushRadius}
                   setLazyBrushRadius={setLazyBrushRadius}
+                  palmRejection={palmRejection}
+                  setPalmRejection={setPalmRejection}
+                  fontSize={fontSize}
+                  setFontSize={setFontSize}
+                  fontFamilies={fontFamilies}
+                  fontFamily={fontFamily}
+                  setFontFamily={setFontFamily}
                   shapeTools={shapeTools}
                   shapeType={shapeType}
                   setShapeType={setShapeType}
@@ -1832,13 +1940,11 @@ export default function ColoringGame() {
                   : activeTool === 'fill' ? 'pointer'
                   : 'default'
               }}
-              onMouseDown={handlePointerDown}
-              onMouseMove={handlePointerMove}
-              onMouseUp={handlePointerUp}
-              onMouseLeave={(e) => { setCursorPosition(null); handlePointerUp(e); }}
-              onTouchStart={handlePointerDown}
-              onTouchMove={handlePointerMove}
-              onTouchEnd={handlePointerUp}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={(e) => { setCursorPosition(null); handlePointerUp(e); }}
+              onPointerCancel={handlePointerUp}
             >
               {/* Grid */}
               {showGrid && (
@@ -1871,7 +1977,19 @@ export default function ColoringGame() {
               {/* Layers */}
               {layers.filter(l => l.visible).map(layer => (
                 <g key={layer.id} opacity={layer.opacity}>
-                  {layer.paths.map((path, i) => path.isShape ? (
+                  {layer.paths.map((path, i) => path.type === 'text' ? (
+                    <text
+                      key={path.id || i}
+                      x={path.x}
+                      y={path.y}
+                      fill={path.color}
+                      fontSize={path.fontSize}
+                      fontFamily={path.fontFamily}
+                      opacity={path.opacity}
+                    >
+                      {path.text}
+                    </text>
+                  ) : path.isShape ? (
                     <path key={path.id || i} d={shapeToPath(path)} fill={path.fill ? path.color : 'none'} stroke={path.color} strokeWidth={path.strokeWidth} opacity={path.opacity} />
                   ) : (
                     <path
@@ -2006,6 +2124,57 @@ export default function ColoringGame() {
                 </g>
               )}
             </svg>
+
+            {/* Text Input Overlay */}
+            {isEditingText && textPosition && (
+              <div
+                className="absolute"
+                style={{
+                  left: `${(textPosition.x / 420) * 100}%`,
+                  top: `${(textPosition.y / 300) * 100}%`,
+                  transform: 'translate(-4px, -50%)',
+                }}
+              >
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmText();
+                    if (e.key === 'Escape') {
+                      setIsEditingText(false);
+                      setTextPosition(null);
+                    }
+                  }}
+                  autoFocus
+                  placeholder="Type here..."
+                  className={`
+                    px-2 py-1 rounded border-2 border-purple-500 outline-none
+                    ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}
+                  `}
+                  style={{
+                    fontSize: `${fontSize * zoom * (canvasWidth / 420)}px`,
+                    fontFamily: fontFamily.value,
+                    color: selectedColor,
+                    minWidth: '100px',
+                  }}
+                />
+                <div className="flex gap-1 mt-1">
+                  <button
+                    onClick={confirmText}
+                    className="px-2 py-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    onClick={() => { setIsEditingText(false); setTextPosition(null); }}
+                    className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                  >
+                    ✗
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Floating Toolbar */}
@@ -2187,6 +2356,13 @@ export default function ColoringGame() {
                 setLazyBrushEnabled={setLazyBrushEnabled}
                 lazyBrushRadius={lazyBrushRadius}
                 setLazyBrushRadius={setLazyBrushRadius}
+                palmRejection={palmRejection}
+                setPalmRejection={setPalmRejection}
+                fontSize={fontSize}
+                setFontSize={setFontSize}
+                fontFamilies={fontFamilies}
+                fontFamily={fontFamily}
+                setFontFamily={setFontFamily}
                 shapeTools={shapeTools}
                 shapeType={shapeType}
                 setShapeType={setShapeType}
@@ -2296,20 +2472,38 @@ export default function ColoringGame() {
               </div>
             </div>
             {exportFormat !== 'svg' && (
-              <div className="mb-4">
-                <div className={`text-sm ${theme.textMuted} mb-2`}>Quality</div>
-                <div className="flex gap-2">
-                  {[{ v: 1, l: 'Low' }, { v: 2, l: 'Medium' }, { v: 4, l: 'High' }].map(q => (
-                    <button
-                      key={q.v}
-                      onClick={() => setExportQuality(q.v)}
-                      className={`flex-1 py-2 rounded-lg text-sm transition-all ${exportQuality === q.v ? theme.active : theme.hover}`}
-                    >
-                      {q.l}
-                    </button>
-                  ))}
+              <>
+                <div className="mb-4">
+                  <div className={`text-sm ${theme.textMuted} mb-2`}>Quality</div>
+                  <div className="flex gap-2">
+                    {[{ v: 1, l: 'Low' }, { v: 2, l: 'Medium' }, { v: 4, l: 'High' }].map(q => (
+                      <button
+                        key={q.v}
+                        onClick={() => setExportQuality(q.v)}
+                        className={`flex-1 py-2 rounded-lg text-sm transition-all ${exportQuality === q.v ? theme.active : theme.hover}`}
+                      >
+                        {q.l}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`text-xs ${theme.textMuted} mt-1`}>
+                    {420 * exportQuality} × {300 * exportQuality}px
+                  </div>
                 </div>
-              </div>
+                {exportFormat === 'png' && (
+                  <div className="mb-4">
+                    <label className={`flex items-center justify-between p-3 rounded-xl cursor-pointer ${theme.hover} border ${theme.border}`}>
+                      <span className={`text-sm ${theme.text}`}>Transparent background</span>
+                      <input
+                        type="checkbox"
+                        checked={exportTransparent}
+                        onChange={(e) => setExportTransparent(e.target.checked)}
+                        className="w-4 h-4 accent-purple-500"
+                      />
+                    </label>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex gap-2 mt-6">
               <button onClick={() => setShowExportModal(false)} className={`flex-1 py-3 rounded-xl ${theme.hover} font-medium`}>Cancel</button>

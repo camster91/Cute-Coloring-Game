@@ -286,11 +286,11 @@ export default function WellnessPanel({
         <Section title="Background Music">
           <div className={`rounded-xl overflow-hidden border ${theme.sectionBorder}`}>
             {musicTracks.map((track, index) => {
-              const isPlayingTrack = isPlaying && currentTrack === track.id;
+              const isPlayingTrack = isPlaying && currentTrack?.name === track.name;
               return (
                 <button
-                  key={track.id}
-                  onClick={() => isPlayingTrack ? stopMusic() : playTrack(track.id)}
+                  key={track.name}
+                  onClick={() => isPlayingTrack ? stopMusic() : playTrack(track)}
                   className={`
                     w-full px-3 py-2.5 text-xs text-left flex items-center gap-2
                     transition-all duration-200

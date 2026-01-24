@@ -20,6 +20,15 @@ export default function ToolsPanel({
   setLazyBrushEnabled,
   lazyBrushRadius,
   setLazyBrushRadius,
+  // Touch settings
+  palmRejection,
+  setPalmRejection,
+  // Text settings
+  fontSize,
+  setFontSize,
+  fontFamilies,
+  fontFamily,
+  setFontFamily,
   // Shape settings
   shapeTools,
   shapeType,
@@ -121,12 +130,13 @@ export default function ToolsPanel({
     <div className="space-y-5">
       {/* Primary Tools */}
       <Section title="Tools">
-        <div className={`grid grid-cols-4 gap-2 p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
+        <div className={`grid grid-cols-5 gap-2 p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
           {[
             { id: 'brush', icon: '🖌️', label: 'Brush' },
             { id: 'eraser', icon: '🧽', label: 'Eraser' },
             { id: 'fill', icon: '🪣', label: 'Fill' },
             { id: 'shape', icon: '⬜', label: 'Shapes' },
+            { id: 'text', icon: '🔤', label: 'Text' },
           ].map(tool => (
             <ToolButton
               key={tool.id}
@@ -205,6 +215,13 @@ export default function ToolsPanel({
               </div>
             )}
           </div>
+
+          {/* Palm Rejection */}
+          <Toggle
+            label="Palm Rejection"
+            checked={palmRejection}
+            onChange={setPalmRejection}
+          />
         </Section>
       )}
 
@@ -228,6 +245,51 @@ export default function ToolsPanel({
             checked={shapeFill}
             onChange={setShapeFill}
           />
+        </Section>
+      )}
+
+      {/* Text Settings */}
+      {activeTool === 'text' && (
+        <Section title="Text Settings">
+          <div className={`p-3 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
+            <Slider
+              label="Font Size"
+              value={fontSize}
+              min={8}
+              max={72}
+              onChange={setFontSize}
+              unit="px"
+              darkMode={darkMode}
+            />
+          </div>
+
+          <div className={`p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
+            <label className={`text-xs ${theme.textMuted} mb-2 block`}>Font Family</label>
+            <div className="grid grid-cols-1 gap-1">
+              {fontFamilies?.map(font => (
+                <button
+                  key={font.id}
+                  onClick={() => setFontFamily(font)}
+                  className={`
+                    p-2 rounded-lg text-sm text-left transition-all
+                    ${fontFamily?.id === font.id
+                      ? `${theme.active}`
+                      : `${theme.hover}`
+                    }
+                  `}
+                  style={{ fontFamily: font.value }}
+                >
+                  {font.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={`p-3 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
+            <p className={`text-xs ${theme.textMuted}`}>
+              Click on the canvas to add text. Press Enter to confirm.
+            </p>
+          </div>
         </Section>
       )}
 
