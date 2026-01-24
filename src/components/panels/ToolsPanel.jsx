@@ -2,6 +2,7 @@ import { Slider } from '../ui';
 
 /**
  * Tools panel containing brush, shape, and symmetry controls
+ * Enhanced with better visual design
  */
 export default function ToolsPanel({
   // Tool state
@@ -35,42 +36,105 @@ export default function ToolsPanel({
   const theme = {
     text: darkMode ? 'text-gray-200' : 'text-gray-700',
     textMuted: darkMode ? 'text-gray-400' : 'text-gray-500',
-    border: darkMode ? 'border-gray-700' : 'border-gray-200',
-    hover: darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100',
-    active: darkMode ? 'bg-gray-700' : 'bg-indigo-100 text-indigo-700',
-    section: darkMode ? 'bg-gray-700/50' : 'bg-gray-50',
+    border: darkMode ? 'border-gray-700/50' : 'border-gray-200/80',
+    hover: darkMode ? 'hover:bg-white/5' : 'hover:bg-gray-100',
+    active: darkMode
+      ? 'bg-gradient-to-br from-indigo-500/30 to-purple-500/20 text-white ring-1 ring-indigo-400/30'
+      : 'bg-gradient-to-br from-indigo-100 to-purple-50 text-indigo-700 ring-1 ring-indigo-200',
+    section: darkMode ? 'bg-gray-800/50' : 'bg-gray-50/80',
+    sectionBorder: darkMode ? 'border-gray-700/30' : 'border-gray-200/50',
   };
 
-  const Section = ({ title, children }) => (
-    <div className="space-y-2">
-      <h4 className={`text-xs font-semibold uppercase tracking-wide ${theme.textMuted}`}>
+  const Section = ({ title, children, className = '' }) => (
+    <div className={`space-y-3 ${className}`}>
+      <h4 className={`
+        text-[10px] font-semibold uppercase tracking-wider
+        ${theme.textMuted}
+        flex items-center gap-2
+      `}>
+        <span className={`flex-1 h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
         {title}
+        <span className={`flex-1 h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
       </h4>
       {children}
     </div>
   );
 
+  const ToolButton = ({ icon, label, isActive, onClick, size = 'md' }) => {
+    const sizeClasses = {
+      sm: 'p-1.5 text-sm',
+      md: 'p-2.5 text-lg',
+      lg: 'p-3 text-xl',
+    };
+    return (
+      <button
+        onClick={onClick}
+        className={`
+          ${sizeClasses[size]} rounded-xl
+          transition-all duration-200 ease-out
+          flex items-center justify-center
+          ${isActive
+            ? `${theme.active} scale-105 shadow-sm`
+            : `${theme.hover} hover:scale-105 active:scale-95`
+          }
+        `}
+        title={label}
+      >
+        <span className={`${isActive ? 'drop-shadow-sm' : ''}`}>{icon}</span>
+      </button>
+    );
+  };
+
+  const Toggle = ({ label, checked, onChange }) => (
+    <label className={`
+      flex items-center justify-between p-3 rounded-xl cursor-pointer
+      ${theme.section} border ${theme.sectionBorder}
+      transition-all duration-200
+      hover:shadow-sm
+    `}>
+      <span className={`text-xs font-medium ${theme.text}`}>{label}</span>
+      <div className="relative">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="sr-only peer"
+        />
+        <div className={`
+          w-10 h-5 rounded-full transition-all duration-200
+          ${checked
+            ? 'bg-gradient-to-r from-indigo-500 to-purple-500'
+            : (darkMode ? 'bg-gray-600' : 'bg-gray-300')
+          }
+        `} />
+        <div className={`
+          absolute top-0.5 left-0.5 w-4 h-4 rounded-full
+          bg-white shadow-sm
+          transition-transform duration-200 ease-out
+          ${checked ? 'translate-x-5' : 'translate-x-0'}
+        `} />
+      </div>
+    </label>
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Primary Tools */}
       <Section title="Tools">
-        <div className="grid grid-cols-4 gap-1">
+        <div className={`grid grid-cols-4 gap-2 p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
           {[
             { id: 'brush', icon: '🖌️', label: 'Brush' },
             { id: 'eraser', icon: '🧽', label: 'Eraser' },
             { id: 'fill', icon: '🪣', label: 'Fill' },
             { id: 'shape', icon: '⬜', label: 'Shapes' },
           ].map(tool => (
-            <button
+            <ToolButton
               key={tool.id}
+              icon={tool.icon}
+              label={tool.label}
+              isActive={activeTool === tool.id}
               onClick={() => setActiveTool(tool.id)}
-              className={`p-2 rounded-lg text-lg transition-all ${
-                activeTool === tool.id ? theme.active : theme.hover
-              }`}
-              title={tool.label}
-            >
-              {tool.icon}
-            </button>
+            />
           ))}
         </div>
       </Section>
@@ -80,56 +144,55 @@ export default function ToolsPanel({
         <Section title="Brush Settings">
           {/* Brush Types */}
           {activeTool === 'brush' && (
-            <div className="grid grid-cols-3 gap-1 mb-3">
+            <div className={`grid grid-cols-3 gap-1.5 p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
               {brushTypes.map(type => (
-                <button
+                <ToolButton
                   key={type.id}
+                  icon={type.icon}
+                  label={type.name}
+                  isActive={brushType.id === type.id}
                   onClick={() => setBrushType(type)}
-                  className={`p-1.5 rounded text-xs transition-all ${
-                    brushType.id === type.id ? theme.active : theme.hover
-                  }`}
-                  title={type.name}
-                >
-                  {type.icon}
-                </button>
+                  size="sm"
+                />
               ))}
             </div>
           )}
 
-          {/* Size */}
-          <Slider
-            label="Size"
-            value={brushSize}
-            min={1}
-            max={100}
-            onChange={setBrushSize}
-            unit="px"
-            darkMode={darkMode}
-          />
+          {/* Size Slider */}
+          <div className={`p-3 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
+            <Slider
+              label="Size"
+              value={brushSize}
+              min={1}
+              max={100}
+              onChange={setBrushSize}
+              unit="px"
+              darkMode={darkMode}
+              showPreview
+            />
+          </div>
 
           {/* Stabilization */}
-          <Slider
-            label="Stabilization"
-            value={brushStabilization}
-            min={0}
-            max={4}
-            onChange={setBrushStabilization}
-            darkMode={darkMode}
-          />
+          <div className={`p-3 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
+            <Slider
+              label="Stabilization"
+              value={brushStabilization}
+              min={0}
+              max={4}
+              onChange={setBrushStabilization}
+              darkMode={darkMode}
+            />
+          </div>
 
           {/* Lazy Brush */}
-          <div className={`p-2 rounded-lg ${theme.section}`}>
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className={`text-xs ${theme.text}`}>Lazy Brush (Precision)</span>
-              <input
-                type="checkbox"
-                checked={lazyBrushEnabled}
-                onChange={(e) => setLazyBrushEnabled(e.target.checked)}
-                className="w-4 h-4 rounded"
-              />
-            </label>
+          <div className="space-y-2">
+            <Toggle
+              label="Lazy Brush (Precision)"
+              checked={lazyBrushEnabled}
+              onChange={setLazyBrushEnabled}
+            />
             {lazyBrushEnabled && (
-              <div className="mt-2">
+              <div className={`p-3 rounded-xl ${theme.section} border ${theme.sectionBorder} ml-2`}>
                 <Slider
                   label="String Length"
                   value={lazyBrushRadius}
@@ -148,47 +211,38 @@ export default function ToolsPanel({
       {/* Shape Settings */}
       {activeTool === 'shape' && (
         <Section title="Shape Settings">
-          <div className="grid grid-cols-4 gap-1 mb-3">
+          <div className={`grid grid-cols-4 gap-2 p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
             {shapeTools.map(shape => (
-              <button
+              <ToolButton
                 key={shape.id}
+                icon={shape.icon}
+                label={shape.name}
+                isActive={shapeType.id === shape.id}
                 onClick={() => setShapeType(shape)}
-                className={`p-2 rounded text-lg transition-all ${
-                  shapeType.id === shape.id ? theme.active : theme.hover
-                }`}
-                title={shape.name}
-              >
-                {shape.icon}
-              </button>
+              />
             ))}
           </div>
 
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className={`text-xs ${theme.text}`}>Fill Shape</span>
-            <input
-              type="checkbox"
-              checked={shapeFill}
-              onChange={(e) => setShapeFill(e.target.checked)}
-              className="w-4 h-4 rounded"
-            />
-          </label>
+          <Toggle
+            label="Fill Shape"
+            checked={shapeFill}
+            onChange={setShapeFill}
+          />
         </Section>
       )}
 
       {/* Symmetry */}
       <Section title="Symmetry Mode">
-        <div className="grid grid-cols-5 gap-1">
+        <div className={`grid grid-cols-5 gap-1.5 p-2 rounded-xl ${theme.section} border ${theme.sectionBorder}`}>
           {symmetryModes.map(mode => (
-            <button
+            <ToolButton
               key={mode.id}
+              icon={mode.icon}
+              label={mode.name}
+              isActive={symmetryMode.id === mode.id}
               onClick={() => setSymmetryMode(mode)}
-              className={`p-1.5 rounded text-sm transition-all ${
-                symmetryMode.id === mode.id ? theme.active : theme.hover
-              }`}
-              title={mode.name}
-            >
-              {mode.icon}
-            </button>
+              size="sm"
+            />
           ))}
         </div>
       </Section>

@@ -2,10 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Import modular components
 import { TabPanel, BottomSheet } from './ui';
-import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel } from './panels';
+import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor, TemplateGallery } from './panels';
 import { StatusBar } from './toolbar';
-import { GridOverlay, LazyBrushIndicator } from './canvas';
-import { useTouchGestures } from './hooks';
+import { GridOverlay, LazyBrushIndicator, FloatingToolbar } from './canvas';
+import { useTouchGestures, useMusic, useAmbientSounds, hexToHSL, hslToHex, generateColorHarmony } from './hooks';
+import useMoodTracking, { moodOptions, activityTags } from './hooks/useMoodTracking';
+import useGradientState, { presetGradients, gradientTypes } from './hooks/useGradientState';
+import { allTemplates as drawings, templateCategories, getTemplatesByCategory } from './templates';
 
 // ============ CONSTANTS ============
 
@@ -168,649 +171,7 @@ const dailyPrompts = [
   { text: "Music as shapes and colors", category: "creative", icon: "🎼" },
 ];
 
-const drawings = [
-  {
-    name: 'Bunny', icon: '🐰',
-    paths: [
-      { id: 'body', d: 'M150 200 Q150 140 180 120 Q210 100 240 120 Q270 140 270 200 Q270 280 210 300 Q150 280 150 200' },
-      { id: 'head', d: 'M170 130 Q170 80 210 60 Q250 80 250 130 Q250 160 210 170 Q170 160 170 130' },
-      { id: 'ear-left', d: 'M175 70 Q160 20 170 -20 Q190 -10 195 40 Q195 60 185 70' },
-      { id: 'ear-right', d: 'M245 70 Q260 20 250 -20 Q230 -10 225 40 Q225 60 235 70' },
-      { id: 'tail', d: 'M265 240 Q290 230 295 250 Q290 270 265 260' },
-      { id: 'nose', d: 'M200 120 Q210 115 220 120 Q215 130 210 130 Q205 130 200 120' },
-    ]
-  },
-  {
-    name: 'Flower', icon: '🌸',
-    paths: [
-      { id: 'petal1', d: 'M210 100 Q240 60 210 20 Q180 60 210 100' },
-      { id: 'petal2', d: 'M210 100 Q270 100 290 70 Q260 40 210 100' },
-      { id: 'petal3', d: 'M210 100 Q270 140 290 180 Q240 160 210 100' },
-      { id: 'petal4', d: 'M210 100 Q180 160 150 180 Q150 140 210 100' },
-      { id: 'petal5', d: 'M210 100 Q150 100 130 70 Q160 40 210 100' },
-      { id: 'center', d: 'M210 100 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
-      { id: 'stem', d: 'M200 125 Q200 200 195 280 Q205 285 215 280 Q220 200 220 125' },
-      { id: 'leaf', d: 'M200 200 Q150 180 130 200 Q150 220 200 210' },
-    ]
-  },
-  {
-    name: 'Star', icon: '⭐',
-    paths: [
-      { id: 'star-outer', d: 'M210 20 L240 90 L320 100 L260 150 L280 230 L210 190 L140 230 L160 150 L100 100 L180 90 Z' },
-      { id: 'star-inner', d: 'M210 60 L225 100 L270 105 L240 130 L250 175 L210 155 L170 175 L180 130 L150 105 L195 100 Z' },
-    ]
-  },
-  {
-    name: 'Fish', icon: '🐠',
-    paths: [
-      { id: 'body', d: 'M80 150 Q120 80 200 80 Q300 80 340 150 Q300 220 200 220 Q120 220 80 150' },
-      { id: 'tail', d: 'M70 150 Q30 100 50 60 Q60 100 80 150 Q60 200 50 240 Q30 200 70 150' },
-      { id: 'fin-top', d: 'M180 85 Q200 40 220 85' },
-      { id: 'fin-bottom', d: 'M180 215 Q200 260 220 215' },
-      { id: 'eye', d: 'M280 130 m-15 0 a15 15 0 1 0 30 0 a15 15 0 1 0 -30 0' },
-      { id: 'stripe1', d: 'M150 100 Q160 150 150 200 Q170 150 150 100' },
-      { id: 'stripe2', d: 'M200 90 Q210 150 200 210 Q220 150 200 90' },
-    ]
-  },
-  {
-    name: 'Butterfly', icon: '🦋',
-    paths: [
-      { id: 'wing-tl', d: 'M200 150 Q150 100 100 80 Q80 120 100 160 Q140 180 200 150' },
-      { id: 'wing-tr', d: 'M220 150 Q270 100 320 80 Q340 120 320 160 Q280 180 220 150' },
-      { id: 'wing-bl', d: 'M200 170 Q150 200 120 240 Q150 260 180 240 Q200 210 200 170' },
-      { id: 'wing-br', d: 'M220 170 Q270 200 300 240 Q270 260 240 240 Q220 210 220 170' },
-      { id: 'body', d: 'M200 100 Q205 100 210 100 Q215 150 215 200 Q215 250 210 280 Q205 280 200 280 Q195 250 195 200 Q195 150 200 100' },
-      { id: 'spot1', d: 'M140 120 m-12 0 a12 12 0 1 0 24 0 a12 12 0 1 0 -24 0' },
-      { id: 'spot2', d: 'M280 120 m-12 0 a12 12 0 1 0 24 0 a12 12 0 1 0 -24 0' },
-    ]
-  },
-  {
-    name: 'House', icon: '🏠',
-    paths: [
-      { id: 'roof', d: 'M100 140 L210 50 L320 140 Z' },
-      { id: 'walls', d: 'M120 140 L120 280 L300 280 L300 140 Z' },
-      { id: 'door', d: 'M180 280 L180 200 L240 200 L240 280 Z' },
-      { id: 'window1', d: 'M140 160 L140 190 L170 190 L170 160 Z' },
-      { id: 'window2', d: 'M250 160 L250 190 L280 190 L280 160 Z' },
-      { id: 'chimney', d: 'M260 50 L260 100 L290 100 L290 70 Z' },
-    ]
-  },
-  {
-    name: 'Cat', icon: '🐱',
-    paths: [
-      { id: 'body', d: 'M120 180 Q100 220 120 280 Q180 320 260 280 Q280 220 260 180 Q220 140 180 140 Q140 140 120 180' },
-      { id: 'head', d: 'M150 140 Q150 80 210 70 Q270 80 270 140 Q270 180 210 190 Q150 180 150 140' },
-      { id: 'ear-left', d: 'M155 100 L140 50 L180 80 Z' },
-      { id: 'ear-right', d: 'M265 100 L280 50 L240 80 Z' },
-      { id: 'tail', d: 'M260 250 Q320 240 340 200 Q350 180 340 170' },
-      { id: 'nose', d: 'M200 130 Q210 125 220 130 Q210 140 200 130' },
-    ]
-  },
-  {
-    name: 'Heart', icon: '❤️',
-    paths: [
-      { id: 'heart', d: 'M210 280 Q100 200 100 120 Q100 60 160 60 Q210 60 210 120 Q210 60 260 60 Q320 60 320 120 Q320 200 210 280' },
-      { id: 'shine1', d: 'M140 100 Q150 80 160 100 Q150 90 140 100' },
-      { id: 'shine2', d: 'M130 130 Q135 120 140 130' },
-    ]
-  },
-  // === MATURE TEMPLATES ===
-  {
-    name: 'Mandala', icon: '🔆',
-    paths: [
-      // Outer ring
-      { id: 'outer-ring', d: 'M210 30 A120 120 0 1 1 209 30 Z' },
-      { id: 'ring-2', d: 'M210 50 A100 100 0 1 1 209 50 Z' },
-      { id: 'ring-3', d: 'M210 70 A80 80 0 1 1 209 70 Z' },
-      { id: 'ring-4', d: 'M210 90 A60 60 0 1 1 209 90 Z' },
-      { id: 'center', d: 'M210 110 A40 40 0 1 1 209 110 Z' },
-      { id: 'core', d: 'M210 130 A20 20 0 1 1 209 130 Z' },
-      // Petals (8-way symmetry)
-      { id: 'petal-n', d: 'M210 50 Q230 80 210 110 Q190 80 210 50' },
-      { id: 'petal-ne', d: 'M295 65 Q280 100 250 110 Q280 90 295 65' },
-      { id: 'petal-e', d: 'M330 150 Q290 150 250 150 Q290 170 330 150' },
-      { id: 'petal-se', d: 'M295 235 Q280 200 250 190 Q280 210 295 235' },
-      { id: 'petal-s', d: 'M210 250 Q230 220 210 190 Q190 220 210 250' },
-      { id: 'petal-sw', d: 'M125 235 Q140 200 170 190 Q140 210 125 235' },
-      { id: 'petal-w', d: 'M90 150 Q130 150 170 150 Q130 170 90 150' },
-      { id: 'petal-nw', d: 'M125 65 Q140 100 170 110 Q140 90 125 65' },
-    ]
-  },
-  {
-    name: 'Lotus', icon: '🪷',
-    paths: [
-      // Center
-      { id: 'center', d: 'M210 150 m-20 0 a20 20 0 1 0 40 0 a20 20 0 1 0 -40 0' },
-      // Inner petals
-      { id: 'inner-1', d: 'M210 130 Q180 100 210 60 Q240 100 210 130' },
-      { id: 'inner-2', d: 'M230 145 Q270 130 290 150 Q270 170 230 155' },
-      { id: 'inner-3', d: 'M230 165 Q260 200 230 230 Q210 200 230 165' },
-      { id: 'inner-4', d: 'M190 165 Q160 200 190 230 Q210 200 190 165' },
-      { id: 'inner-5', d: 'M190 145 Q150 130 130 150 Q150 170 190 155' },
-      // Outer petals
-      { id: 'outer-1', d: 'M210 60 Q160 40 210 10 Q260 40 210 60' },
-      { id: 'outer-2', d: 'M290 150 Q320 110 350 150 Q320 190 290 150' },
-      { id: 'outer-3', d: 'M230 230 Q250 270 210 290 Q170 270 190 230' },
-      { id: 'outer-4', d: 'M130 150 Q100 110 70 150 Q100 190 130 150' },
-      // Base
-      { id: 'base', d: 'M140 250 Q210 270 280 250 Q250 280 210 285 Q170 280 140 250' },
-    ]
-  },
-  {
-    name: 'Zen Circle', icon: '⭕',
-    paths: [
-      { id: 'enso', d: 'M100 150 A110 110 0 1 1 95 145 M95 145 Q90 155 100 150' },
-      { id: 'inner-1', d: 'M150 150 A60 60 0 1 1 148 150' },
-      { id: 'inner-2', d: 'M180 150 A30 30 0 1 1 178 150' },
-      { id: 'dot', d: 'M205 150 A5 5 0 1 1 204 150' },
-    ]
-  },
-  {
-    name: 'Mountains', icon: '🏔️',
-    paths: [
-      // Sky
-      { id: 'sky', d: 'M0 0 L420 0 L420 150 L0 150 Z' },
-      // Far mountains
-      { id: 'mountain-far-1', d: 'M0 180 L80 80 L160 180 Z' },
-      { id: 'mountain-far-2', d: 'M120 180 L210 60 L300 180 Z' },
-      { id: 'mountain-far-3', d: 'M260 180 L350 90 L420 180 Z' },
-      // Snow caps
-      { id: 'snow-1', d: 'M80 80 L60 120 L100 120 Z' },
-      { id: 'snow-2', d: 'M210 60 L180 110 L240 110 Z' },
-      { id: 'snow-3', d: 'M350 90 L330 130 L370 130 Z' },
-      // Foreground
-      { id: 'ground', d: 'M0 180 L420 180 L420 300 L0 300 Z' },
-      // Trees
-      { id: 'tree-1', d: 'M50 280 L60 220 L70 280 Z' },
-      { id: 'tree-2', d: 'M100 280 L115 200 L130 280 Z' },
-      { id: 'tree-3', d: 'M320 280 L335 210 L350 280 Z' },
-      // Lake
-      { id: 'lake', d: 'M150 230 Q210 200 280 230 Q280 280 210 290 Q140 280 150 230' },
-    ]
-  },
-  {
-    name: 'Wave', icon: '🌊',
-    paths: [
-      // Great wave inspired
-      { id: 'wave-main', d: 'M20 200 Q80 100 150 120 Q220 140 250 80 Q280 20 320 60 Q360 100 400 80' },
-      { id: 'wave-curl', d: 'M250 80 Q270 90 280 110 Q260 100 250 80' },
-      { id: 'wave-2', d: 'M30 220 Q100 180 180 200 Q260 220 340 180 Q380 160 410 170' },
-      { id: 'wave-3', d: 'M20 250 Q120 230 220 250 Q320 270 400 240' },
-      // Foam
-      { id: 'foam-1', d: 'M280 110 Q290 115 285 125 Q275 120 280 110' },
-      { id: 'foam-2', d: 'M295 105 Q305 110 300 120 Q290 115 295 105' },
-      { id: 'foam-3', d: 'M310 100 Q320 105 315 115 Q305 110 310 100' },
-      // Spray
-      { id: 'spray-1', d: 'M260 70 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0' },
-      { id: 'spray-2', d: 'M275 55 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0' },
-      { id: 'spray-3', d: 'M245 60 m-3 0 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0' },
-    ]
-  },
-  {
-    name: 'Tree of Life', icon: '🌳',
-    paths: [
-      // Trunk
-      { id: 'trunk', d: 'M190 280 Q195 200 180 150 Q210 130 240 150 Q225 200 230 280 Z' },
-      // Roots
-      { id: 'root-1', d: 'M190 280 Q150 290 120 280 Q140 270 190 280' },
-      { id: 'root-2', d: 'M200 285 Q200 300 180 300 Q190 290 200 285' },
-      { id: 'root-3', d: 'M220 285 Q220 300 240 300 Q230 290 220 285' },
-      { id: 'root-4', d: 'M230 280 Q270 290 300 280 Q280 270 230 280' },
-      // Branches
-      { id: 'branch-1', d: 'M180 150 Q120 120 80 80' },
-      { id: 'branch-2', d: 'M185 140 Q150 100 130 50' },
-      { id: 'branch-3', d: 'M200 130 Q200 80 210 30' },
-      { id: 'branch-4', d: 'M225 140 Q260 100 290 50' },
-      { id: 'branch-5', d: 'M240 150 Q300 120 340 80' },
-      // Leaves/canopy circles
-      { id: 'canopy-1', d: 'M80 80 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
-      { id: 'canopy-2', d: 'M130 50 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
-      { id: 'canopy-3', d: 'M210 30 m-30 0 a30 30 0 1 0 60 0 a30 30 0 1 0 -60 0' },
-      { id: 'canopy-4', d: 'M290 50 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
-      { id: 'canopy-5', d: 'M340 80 m-25 0 a25 25 0 1 0 50 0 a25 25 0 1 0 -50 0' },
-    ]
-  },
-  {
-    name: 'Geometric', icon: '🔷',
-    paths: [
-      // Hexagon pattern
-      { id: 'hex-center', d: 'M210 150 L240 130 L270 150 L270 180 L240 200 L210 180 Z' },
-      { id: 'hex-1', d: 'M180 130 L210 110 L240 130 L240 160 L210 180 L180 160 Z' },
-      { id: 'hex-2', d: 'M240 130 L270 110 L300 130 L300 160 L270 180 L240 160 Z' },
-      { id: 'hex-3', d: 'M150 150 L180 130 L210 150 L210 180 L180 200 L150 180 Z' },
-      { id: 'hex-4', d: 'M270 150 L300 130 L330 150 L330 180 L300 200 L270 180 Z' },
-      { id: 'hex-5', d: 'M180 200 L210 180 L240 200 L240 230 L210 250 L180 230 Z' },
-      { id: 'hex-6', d: 'M240 200 L270 180 L300 200 L300 230 L270 250 L240 230 Z' },
-      // Inner triangles
-      { id: 'tri-1', d: 'M210 90 L180 130 L240 130 Z' },
-      { id: 'tri-2', d: 'M210 250 L180 210 L240 210 Z' },
-    ]
-  },
-  {
-    name: 'Rose', icon: '🌹',
-    paths: [
-      // Center bud
-      { id: 'center', d: 'M210 130 Q200 140 210 150 Q220 140 210 130' },
-      // Inner petals
-      { id: 'petal-i1', d: 'M210 130 Q180 120 190 100 Q210 110 210 130' },
-      { id: 'petal-i2', d: 'M210 130 Q240 120 230 100 Q210 110 210 130' },
-      { id: 'petal-i3', d: 'M210 150 Q190 160 185 140 Q200 145 210 150' },
-      { id: 'petal-i4', d: 'M210 150 Q230 160 235 140 Q220 145 210 150' },
-      // Middle petals
-      { id: 'petal-m1', d: 'M190 100 Q150 90 140 120 Q160 130 190 100' },
-      { id: 'petal-m2', d: 'M230 100 Q270 90 280 120 Q260 130 230 100' },
-      { id: 'petal-m3', d: 'M185 140 Q150 150 145 180 Q170 170 185 140' },
-      { id: 'petal-m4', d: 'M235 140 Q270 150 275 180 Q250 170 235 140' },
-      // Outer petals
-      { id: 'petal-o1', d: 'M140 120 Q100 100 90 140 Q110 160 145 180' },
-      { id: 'petal-o2', d: 'M280 120 Q320 100 330 140 Q310 160 275 180' },
-      { id: 'petal-o3', d: 'M145 180 Q120 200 140 230 Q170 220 200 190' },
-      { id: 'petal-o4', d: 'M275 180 Q300 200 280 230 Q250 220 220 190' },
-      // Stem
-      { id: 'stem', d: 'M210 190 Q205 220 200 280' },
-      { id: 'leaf-1', d: 'M200 230 Q160 220 150 240 Q170 250 200 240' },
-      { id: 'leaf-2', d: 'M205 260 Q240 250 250 270 Q230 280 205 270' },
-    ]
-  },
-  { name: 'Free Draw', icon: '✏️', paths: [] },
-];
-
-// ============ MUSIC HOOK ============
-
-const useMusic = () => {
-  const audioContextRef = useRef(null);
-  const oscillatorRef = useRef(null);
-  const gainNodeRef = useRef(null);
-  const intervalRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState(null);
-
-  const melodies = {
-    lullaby: [261.63, 293.66, 329.63, 293.66, 261.63, 293.66, 329.63, 349.23, 329.63, 293.66, 261.63],
-    cheerful: [392, 440, 494, 523, 494, 440, 392, 440, 494, 523, 587, 523],
-    calm: [196, 220, 247, 262, 247, 220, 196, 220, 247, 262],
-    playful: [523, 587, 659, 698, 659, 587, 523, 587, 659, 784, 659, 587],
-    peaceful: [220, 262, 294, 330, 294, 262, 220, 262, 294, 330],
-    nature: [440, 494, 523, 587, 659, 587, 523, 494, 440, 523, 587, 659],
-  };
-
-  const playTrack = useCallback((track) => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (oscillatorRef.current) try { oscillatorRef.current.stop(); } catch(e) {}
-    if (audioContextRef.current) try { audioContextRef.current.close(); } catch(e) {}
-
-    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    gainNodeRef.current = audioContextRef.current.createGain();
-    gainNodeRef.current.connect(audioContextRef.current.destination);
-    gainNodeRef.current.gain.value = 0.12;
-
-    const melody = melodies[track.type];
-    let noteIndex = 0;
-
-    const playNote = () => {
-      if (oscillatorRef.current) try { oscillatorRef.current.stop(); } catch(e) {}
-      oscillatorRef.current = audioContextRef.current.createOscillator();
-      oscillatorRef.current.type = 'sine';
-      oscillatorRef.current.frequency.value = melody[noteIndex % melody.length];
-      oscillatorRef.current.connect(gainNodeRef.current);
-      oscillatorRef.current.start();
-      oscillatorRef.current.stop(audioContextRef.current.currentTime + 0.35);
-      noteIndex++;
-    };
-
-    playNote();
-    intervalRef.current = setInterval(playNote, 450);
-    setIsPlaying(true);
-    setCurrentTrack(track);
-  }, []);
-
-  const stopMusic = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (oscillatorRef.current) try { oscillatorRef.current.stop(); } catch(e) {}
-    if (audioContextRef.current) try { audioContextRef.current.close(); } catch(e) {}
-    setIsPlaying(false);
-    setCurrentTrack(null);
-  }, []);
-
-  return { isPlaying, currentTrack, playTrack, stopMusic };
-};
-
-// ============ AMBIENT SOUND HOOK ============
-
-const useAmbientSounds = () => {
-  const audioContextRef = useRef(null);
-  const nodesRef = useRef({});
-
-  const getAudioContext = useCallback(() => {
-    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return audioContextRef.current;
-  }, []);
-
-  // Create white noise buffer
-  const createNoiseBuffer = useCallback((type = 'white') => {
-    const ctx = getAudioContext();
-    const bufferSize = ctx.sampleRate * 2;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-
-    let lastOut = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      if (type === 'brown') {
-        // Brown noise - integrate white noise
-        lastOut = (lastOut + (0.02 * white)) / 1.02;
-        data[i] = lastOut * 3.5;
-      } else if (type === 'pink') {
-        // Simplified pink noise
-        data[i] = white * 0.5;
-      } else {
-        // White noise
-        data[i] = white;
-      }
-    }
-    return buffer;
-  }, [getAudioContext]);
-
-  // Start a sound
-  const startSound = useCallback((soundId, volume = 0.5) => {
-    const ctx = getAudioContext();
-    if (ctx.state === 'suspended') ctx.resume();
-
-    // Stop existing sound
-    if (nodesRef.current[soundId]) {
-      stopSound(soundId);
-    }
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = volume * 0.3; // Scale down for comfortable listening
-    gainNode.connect(ctx.destination);
-
-    let sourceNode;
-
-    switch (soundId) {
-      case 'white':
-      case 'brown': {
-        // Noise-based sounds
-        const buffer = createNoiseBuffer(soundId);
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-
-        // Add filter for shaping
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = soundId === 'brown' ? 500 : 8000;
-        sourceNode.connect(filter);
-        filter.connect(gainNode);
-        break;
-      }
-      case 'rain': {
-        // Rain = filtered noise with modulation
-        const buffer = createNoiseBuffer('white');
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 3000;
-        filter.Q.value = 0.5;
-
-        // Add subtle LFO for variation
-        const lfo = ctx.createOscillator();
-        const lfoGain = ctx.createGain();
-        lfo.frequency.value = 0.2;
-        lfoGain.gain.value = 500;
-        lfo.connect(lfoGain);
-        lfoGain.connect(filter.frequency);
-        lfo.start();
-
-        sourceNode.connect(filter);
-        filter.connect(gainNode);
-        nodesRef.current[soundId + '_lfo'] = lfo;
-        break;
-      }
-      case 'ocean': {
-        // Ocean = low frequency modulated noise
-        const buffer = createNoiseBuffer('brown');
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 400;
-
-        // Wave-like modulation
-        const lfo = ctx.createOscillator();
-        const lfoGain = ctx.createGain();
-        lfo.frequency.value = 0.08; // Slow waves
-        lfoGain.gain.value = 0.3;
-        lfo.connect(lfoGain);
-        lfoGain.connect(gainNode.gain);
-        lfo.start();
-
-        sourceNode.connect(filter);
-        filter.connect(gainNode);
-        nodesRef.current[soundId + '_lfo'] = lfo;
-        break;
-      }
-      case 'wind': {
-        // Wind = filtered noise with slow modulation
-        const buffer = createNoiseBuffer('white');
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 800;
-        filter.Q.value = 2;
-
-        const lfo = ctx.createOscillator();
-        const lfoGain = ctx.createGain();
-        lfo.frequency.value = 0.1;
-        lfoGain.gain.value = 400;
-        lfo.connect(lfoGain);
-        lfoGain.connect(filter.frequency);
-        lfo.start();
-
-        sourceNode.connect(filter);
-        filter.connect(gainNode);
-        nodesRef.current[soundId + '_lfo'] = lfo;
-        break;
-      }
-      case 'fire': {
-        // Fire = crackling noise
-        const buffer = createNoiseBuffer('brown');
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 200;
-        filter.Q.value = 1;
-
-        // Crackle modulation
-        const lfo = ctx.createOscillator();
-        lfo.type = 'square';
-        const lfoGain = ctx.createGain();
-        lfo.frequency.value = 4;
-        lfoGain.gain.value = 0.2;
-        lfo.connect(lfoGain);
-        lfoGain.connect(gainNode.gain);
-        lfo.start();
-
-        sourceNode.connect(filter);
-        filter.connect(gainNode);
-        nodesRef.current[soundId + '_lfo'] = lfo;
-        break;
-      }
-      case 'forest':
-      case 'birds':
-      case 'night':
-      case 'creek':
-      case 'thunder':
-      case 'cafe': {
-        // For complex sounds, use a combination approach
-        const buffer = createNoiseBuffer(soundId === 'thunder' ? 'brown' : 'white');
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        const freqMap = {
-          forest: 2000, birds: 4000, night: 3000,
-          creek: 5000, thunder: 100, cafe: 2500
-        };
-        filter.frequency.value = freqMap[soundId] || 2000;
-        filter.Q.value = soundId === 'thunder' ? 0.5 : 1;
-
-        sourceNode.connect(filter);
-        filter.connect(gainNode);
-        break;
-      }
-      default: {
-        // Fallback to white noise
-        const buffer = createNoiseBuffer('white');
-        sourceNode = ctx.createBufferSource();
-        sourceNode.buffer = buffer;
-        sourceNode.loop = true;
-        sourceNode.connect(gainNode);
-      }
-    }
-
-    sourceNode.start();
-    nodesRef.current[soundId] = { source: sourceNode, gain: gainNode };
-  }, [getAudioContext, createNoiseBuffer]);
-
-  // Stop a sound
-  const stopSound = useCallback((soundId) => {
-    if (nodesRef.current[soundId]) {
-      try {
-        nodesRef.current[soundId].source.stop();
-        nodesRef.current[soundId].gain.disconnect();
-      } catch (e) {}
-      delete nodesRef.current[soundId];
-    }
-    // Also stop any associated LFO
-    if (nodesRef.current[soundId + '_lfo']) {
-      try {
-        nodesRef.current[soundId + '_lfo'].stop();
-      } catch (e) {}
-      delete nodesRef.current[soundId + '_lfo'];
-    }
-  }, []);
-
-  // Update volume
-  const setVolume = useCallback((soundId, volume) => {
-    if (nodesRef.current[soundId]) {
-      nodesRef.current[soundId].gain.gain.value = volume * 0.3;
-    }
-  }, []);
-
-  // Stop all sounds
-  const stopAllSounds = useCallback(() => {
-    Object.keys(nodesRef.current).forEach(id => {
-      if (!id.endsWith('_lfo')) stopSound(id);
-    });
-  }, [stopSound]);
-
-  return { startSound, stopSound, setVolume, stopAllSounds };
-};
-
-// ============ COLOR HARMONY UTILITIES ============
-
-const hexToHSL = (hex) => {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h, s, l = (max + min) / 2;
-
-  if (max === min) {
-    h = s = 0;
-  } else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
-      default: h = 0;
-    }
-  }
-
-  return { h: h * 360, s: s * 100, l: l * 100 };
-};
-
-const hslToHex = ({ h, s, l }) => {
-  h = h / 360; s = s / 100; l = l / 100;
-  let r, g, b;
-
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const hue2rgb = (p, q, t) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1/3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1/3);
-  }
-
-  const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-};
-
-const generateColorHarmony = (baseColor, harmonyType) => {
-  const hsl = hexToHSL(baseColor);
-  const colors = [baseColor];
-
-  switch (harmonyType) {
-    case 'complementary':
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 180) % 360 }));
-      break;
-    case 'analogous':
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 30) % 360 }));
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 330) % 360 }));
-      break;
-    case 'triadic':
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 120) % 360 }));
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 240) % 360 }));
-      break;
-    case 'splitComplementary':
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 150) % 360 }));
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 210) % 360 }));
-      break;
-    case 'tetradic':
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 90) % 360 }));
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 180) % 360 }));
-      colors.push(hslToHex({ ...hsl, h: (hsl.h + 270) % 360 }));
-      break;
-    case 'monochromatic':
-      colors.push(hslToHex({ ...hsl, l: Math.min(95, hsl.l + 20) }));
-      colors.push(hslToHex({ ...hsl, l: Math.max(5, hsl.l - 20) }));
-      colors.push(hslToHex({ ...hsl, s: Math.max(10, hsl.s - 30) }));
-      break;
-    default:
-      break;
-  }
-
-  return colors;
-};
+// Templates are now imported from ./templates
 
 // ============ SMOOTH PATH UTILITY ============
 
@@ -915,6 +276,7 @@ export default function ColoringGame() {
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showMobileTools, setShowMobileTools] = useState(false);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [recentColors, setRecentColors] = useState([]);
   const [hexInput, setHexInput] = useState('#FFB5BA');
 
@@ -938,6 +300,9 @@ export default function ColoringGame() {
   const [lazyBrushRadius, setLazyBrushRadius] = useState(30); // pixels
   const lazyBrushPosRef = useRef({ x: 0, y: 0 }); // Current brush position
   const [lazyBrushIndicator, setLazyBrushIndicator] = useState(null); // Visual indicator
+
+  // Brush cursor preview
+  const [cursorPosition, setCursorPosition] = useState(null);
 
   // Color Harmony
   const [showColorHarmony, setShowColorHarmony] = useState(false);
@@ -986,7 +351,54 @@ export default function ColoringGame() {
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
   const { startSound, stopSound, setVolume: setAmbientVolume, stopAllSounds } = useAmbientSounds();
 
-  // Touch gestures for mobile (pinch-to-zoom, two-finger pan)
+  // Mood tracking hook
+  const {
+    currentMood,
+    moodNote,
+    setMoodNote,
+    selectedActivities,
+    toggleActivity,
+    showMoodPrompt,
+    dismissMoodPrompt,
+    showMoodHistory,
+    setShowMoodHistory,
+    groupedHistory,
+    recordMood,
+    deleteMoodEntry,
+    clearMoodHistory,
+    moodStats,
+    moodTrend,
+  } = useMoodTracking();
+
+  // Gradient editor hook
+  const {
+    gradientEnabled,
+    setGradientEnabled,
+    gradientType,
+    setGradientType,
+    gradientAngle,
+    setGradientAngle,
+    gradientColors,
+    gradientCSS,
+    addColorStop,
+    removeColorStop,
+    updateColorStop,
+    customGradients,
+    loadPreset,
+    saveCustomGradient,
+    deleteCustomGradient,
+    loadCustomGradient,
+    reverseGradient,
+    rotateGradient,
+    radialPosition,
+    setRadialPosition,
+  } = useGradientState();
+
+  // Touch gestures for mobile (pinch-to-zoom, two-finger pan, tap gestures)
+  // Note: undo/redo are defined later but work due to closure over refs
+  const undoRef = useRef(null);
+  const redoRef = useRef(null);
+
   useTouchGestures({
     targetRef: containerRef,
     onZoom: (delta) => {
@@ -995,6 +407,8 @@ export default function ColoringGame() {
     onPan: (delta) => {
       setPan(p => ({ x: p.x + delta.x, y: p.y + delta.y }));
     },
+    onUndo: () => undoRef.current?.(),
+    onRedo: () => redoRef.current?.(),
   });
 
   // ============ EFFECTS ============
@@ -1153,6 +567,7 @@ export default function ColoringGame() {
         case 'b': setActiveTool('brush'); break;
         case 'e': if (!ctrlKey) setActiveTool('eraser'); break;
         case 'g': setActiveTool('fill'); break;
+        case 'i': setActiveTool('eyedropper'); break;
         case 'u': setActiveTool('shape'); break;
         case '[': setBrushSize(s => Math.max(1, s - 4)); break;
         case ']': setBrushSize(s => Math.min(100, s + 4)); break;
@@ -1261,6 +676,12 @@ export default function ColoringGame() {
       setHistoryIndex(i => i + 1);
     }
   }, [history, historyIndex]);
+
+  // Update refs for touch gesture callbacks
+  useEffect(() => {
+    undoRef.current = undo;
+    redoRef.current = redo;
+  }, [undo, redo]);
 
   // ============ LAYER FUNCTIONS ============
 
@@ -1412,10 +833,47 @@ export default function ColoringGame() {
         strokeWidth: Math.max(2, brushSize / 4),
         opacity: colorOpacity
       });
+    } else if (activeTool === 'eyedropper') {
+      // Pick color from canvas using pixel sampling
+      e.preventDefault();
+      const svg = canvasRef.current;
+      if (!svg) return;
+
+      // Get the element at the click position
+      const element = document.elementFromPoint(
+        e.touches ? e.touches[0].clientX : e.clientX,
+        e.touches ? e.touches[0].clientY : e.clientY
+      );
+
+      if (element && element.tagName === 'path') {
+        const fill = element.getAttribute('fill');
+        const stroke = element.getAttribute('stroke');
+        const color = fill && fill !== 'none' && fill !== 'transparent' ? fill : stroke;
+        if (color && color !== 'none') {
+          setSelectedColor(color);
+          setHexInput(color);
+          // Add to recent colors
+          setRecentColors(prev => {
+            const filtered = prev.filter(c => c !== color);
+            return [color, ...filtered].slice(0, 10);
+          });
+          // Switch back to brush after picking
+          setActiveTool('brush');
+        }
+      } else {
+        // If clicked on background, pick background color
+        setSelectedColor(backgroundColor);
+        setHexInput(backgroundColor);
+        setActiveTool('brush');
+      }
     }
-  }, [isPanning, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill]);
+  }, [isPanning, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors]);
 
   const handlePointerMove = useCallback((e) => {
+    // Always track cursor position for brush preview
+    const pos = getPointerPosition(e);
+    setCursorPosition(pos);
+
     if (isPanning && e.buttons === 1) {
       const movementX = e.movementX || 0;
       const movementY = e.movementY || 0;
@@ -1424,8 +882,6 @@ export default function ColoringGame() {
     }
 
     if (!isDrawing) return;
-
-    const pos = getPointerPosition(e);
 
     if ((activeTool === 'brush' || activeTool === 'eraser') && currentPath) {
       e.preventDefault();
@@ -1720,154 +1176,273 @@ export default function ColoringGame() {
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden select-none ${theme.bg} ${theme.text}`}>
-      {/* Focus Mode Floating Toolbar */}
+      {/* Focus Mode - Zen Drawing Experience */}
       {focusMode && (
-        <div
-          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 ${theme.panel} rounded-full shadow-lg px-4 py-2 flex items-center gap-3 opacity-30 hover:opacity-100 transition-opacity`}
-        >
-          <span className="text-sm font-medium">Focus Mode</span>
-          <div className={`w-px h-4 ${theme.border}`} />
-          {[
-            { id: 'brush', icon: '🖌️' },
-            { id: 'eraser', icon: '🧽' },
-          ].map(tool => (
-            <button
-              key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
-              className={`p-1 rounded ${activeTool === tool.id ? 'bg-purple-500 text-white' : theme.hover}`}
-            >
-              {tool.icon}
-            </button>
-          ))}
-          <div className={`w-px h-4 ${theme.border}`} />
-          <div className="flex items-center gap-1">
-            <button onClick={() => setBrushSize(s => Math.max(2, s - 4))} className={`text-sm px-1 ${theme.hover} rounded`}>−</button>
-            <span className="text-xs w-6 text-center">{brushSize}</span>
-            <button onClick={() => setBrushSize(s => Math.min(80, s + 4))} className={`text-sm px-1 ${theme.hover} rounded`}>+</button>
-          </div>
+        <>
+          {/* Minimal floating toolbar - appears on hover at top */}
           <div
-            className="w-6 h-6 rounded-full border-2 border-white shadow cursor-pointer"
-            style={{ backgroundColor: selectedColor }}
-            onClick={() => setActivePanel(activePanel === 'focusColors' ? null : 'focusColors')}
-          />
-          <button onClick={() => setFocusMode(false)} className={`p-1 rounded ${theme.hover}`} title="Exit Focus Mode (Esc)">
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Focus Mode Color Picker */}
-      {focusMode && activePanel === 'focusColors' && (
-        <div className={`fixed top-16 left-1/2 transform -translate-x-1/2 z-50 ${theme.panel} rounded-xl shadow-lg p-3`}>
-          <div className="grid grid-cols-5 gap-1">
-            {colorPalettes[currentPalette].map(color => (
-              <button
-                key={color}
-                onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
-                className={`w-8 h-8 rounded-lg ${selectedColor === color ? 'ring-2 ring-purple-500' : ''}`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Top Bar - hidden in focus mode */}
-      {!focusMode && (
-      <div className={`flex items-center justify-between px-2 py-1.5 ${theme.panel} shadow-sm z-20 gap-2`}>
-        {/* Left: Logo + Drawing selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent hidden sm:block">
-            Calm Drawing
-          </span>
-
-          <div className="relative">
-            <button
-              onClick={() => setActivePanel(activePanel === 'pictures' ? null : 'pictures')}
-              className={`px-2 py-1 rounded-lg text-sm flex items-center gap-1 ${theme.hover} border ${theme.border}`}
-            >
-              {drawing.icon} <span className="hidden sm:inline">{drawing.name}</span>
-              <span className="text-xs opacity-50">▼</span>
-            </button>
-            {activePanel === 'pictures' && (
-              <div className={`absolute top-full left-0 mt-1 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-2 z-50 w-64`}>
-                <div className="grid grid-cols-3 gap-1">
-                  {drawings.map((d, i) => (
-                    <button
-                      key={d.name}
-                      onClick={() => { setCurrentDrawing(i); setActivePanel(null); }}
-                      className={`p-2 rounded-lg text-center transition-all ${currentDrawing === i ? theme.active : theme.hover}`}
-                    >
-                      <div className="text-2xl">{d.icon}</div>
-                      <div className="text-xs truncate">{d.name}</div>
-                    </button>
-                  ))}
-                </div>
+            className={`
+              fixed top-0 left-0 right-0 z-50
+              flex justify-center pt-3
+              opacity-0 hover:opacity-100
+              transition-all duration-500
+            `}
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, transparent 100%)' }}
+          >
+            <div className={`
+              ${darkMode ? 'bg-gray-900/90' : 'bg-white/90'}
+              backdrop-blur-xl rounded-2xl shadow-2xl
+              px-4 py-2.5 flex items-center gap-3
+              border ${darkMode ? 'border-white/10' : 'border-gray-200/50'}
+            `}>
+              {/* Tools */}
+              <div className="flex items-center gap-1">
+                {[
+                  { id: 'brush', icon: '✏️', label: 'Brush' },
+                  { id: 'eraser', icon: '🧽', label: 'Eraser' },
+                  { id: 'fill', icon: '🪣', label: 'Fill' },
+                ].map(tool => (
+                  <button
+                    key={tool.id}
+                    onClick={() => setActiveTool(tool.id)}
+                    className={`
+                      w-9 h-9 rounded-xl flex items-center justify-center text-lg
+                      transition-all duration-200
+                      ${activeTool === tool.id
+                        ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg scale-110'
+                        : `${theme.hover}`
+                      }
+                    `}
+                    title={tool.label}
+                  >
+                    {tool.icon}
+                  </button>
+                ))}
               </div>
-            )}
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Brush Size */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="2"
+                  max="80"
+                  value={brushSize}
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                  className="w-20 accent-indigo-500"
+                />
+                <span className={`text-xs font-medium w-8 ${theme.textMuted}`}>{brushSize}px</span>
+              </div>
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Color */}
+              <button
+                onClick={() => setActivePanel(activePanel === 'focusColors' ? null : 'focusColors')}
+                className="relative group"
+              >
+                <div
+                  className="w-8 h-8 rounded-xl border-2 border-white shadow-lg cursor-pointer
+                    transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: selectedColor }}
+                />
+              </button>
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Undo/Redo */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme.hover} disabled:opacity-30`}
+                  title="Undo"
+                >
+                  ↩
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme.hover} disabled:opacity-30`}
+                  title="Redo"
+                >
+                  ↪
+                </button>
+              </div>
+
+              <div className={`w-px h-6 ${darkMode ? 'bg-white/20' : 'bg-gray-300'}`} />
+
+              {/* Exit */}
+              <button
+                onClick={() => setFocusMode(false)}
+                className={`
+                  px-3 py-1.5 rounded-lg text-xs font-medium
+                  ${theme.hover} transition-all
+                `}
+                title="Exit Focus Mode (Esc)"
+              >
+                Exit
+              </button>
+            </div>
+          </div>
+
+          {/* Focus Mode Color Picker */}
+          {activePanel === 'focusColors' && (
+            <div className={`
+              fixed top-20 left-1/2 transform -translate-x-1/2 z-50
+              ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'}
+              backdrop-blur-xl rounded-2xl shadow-2xl
+              p-4 border ${darkMode ? 'border-white/10' : 'border-gray-200/50'}
+            `}>
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                {colorPalettes[currentPalette].map(color => (
+                  <button
+                    key={color}
+                    onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
+                    className={`
+                      w-10 h-10 rounded-xl transition-all
+                      hover:scale-110 active:scale-95
+                      ${selectedColor === color ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+                    `}
+                    style={{
+                      backgroundColor: color,
+                      boxShadow: `0 4px 12px ${color}40`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Recent colors */}
+              {recentColors.length > 0 && (
+                <div className={`pt-3 border-t ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+                  <div className={`text-[10px] ${theme.textMuted} mb-2`}>Recent</div>
+                  <div className="flex gap-1.5">
+                    {recentColors.slice(0, 5).map((color, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setSelectedColor(color); setHexInput(color); setActivePanel(null); }}
+                        className="w-7 h-7 rounded-lg transition-all hover:scale-110"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtle hint at bottom */}
+          <div className={`
+            fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40
+            text-xs ${theme.textMuted}
+            opacity-30 hover:opacity-70 transition-opacity
+          `}>
+            Press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-mono text-[10px]">Esc</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 font-mono text-[10px]">F</kbd> to exit • Two-finger tap to undo
+          </div>
+        </>
+      )}
+
+      {/* Top Bar - Simplified, clean header */}
+      {!focusMode && (
+      <div className={`flex items-center justify-between px-3 py-2 ${theme.panel} shadow-sm z-20`}>
+        {/* Left: Logo + Template selector */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowTemplateGallery(true)}
+            className={`
+              flex items-center gap-2 px-3 py-2 rounded-xl
+              ${theme.hover} border ${theme.border}
+              transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]
+            `}
+          >
+            <span className="text-xl">{drawing.icon}</span>
+            <div className="hidden sm:block text-left">
+              <div className="text-sm font-medium leading-tight">{drawing.name}</div>
+              <div className={`text-[10px] ${theme.textMuted}`}>Tap to change</div>
+            </div>
+          </button>
+
+          {/* Quick Color Indicator */}
+          <div className="hidden md:flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-lg border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform"
+              style={{ backgroundColor: selectedColor }}
+              onClick={() => setLeftSidebarTab('colors')}
+              title="Current Color"
+            />
+            <div className={`text-xs font-mono ${theme.textMuted}`}>{brushSize}px</div>
           </div>
         </div>
 
-        {/* Center: Tools (desktop) */}
-        {!isMobile && (
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            {[
-              { id: 'brush', icon: '🖌️', label: 'Brush' },
-              { id: 'eraser', icon: '🧽', label: 'Eraser' },
-              { id: 'fill', icon: '🪣', label: 'Fill' },
-              { id: 'shape', icon: '⬜', label: 'Shapes' },
-            ].map(tool => (
-              <button
-                key={tool.id}
-                onClick={() => setActiveTool(tool.id)}
-                className={`px-3 py-1.5 rounded-md text-sm transition-all ${activeTool === tool.id ? theme.active : theme.hover}`}
-                title={tool.label}
-              >
-                {tool.icon}
-              </button>
-            ))}
+        {/* Center: Session info (desktop) */}
+        <div className="hidden md:flex items-center gap-4">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            <span className="text-sm">⏱️</span>
+            <span className="text-sm font-medium tabular-nums">{formatTime(sessionSeconds)}</span>
           </div>
-        )}
+          {(isPlaying || Object.keys(activeSounds).length > 0) && (
+            <div className="flex items-center gap-1 text-green-500 animate-pulse">
+              <span>🎵</span>
+              <span className="text-xs">Playing</span>
+            </div>
+          )}
+        </div>
 
-        {/* Right: Actions */}
+        {/* Right: Quick actions */}
         <div className="flex items-center gap-1">
-          <button onClick={undo} disabled={historyIndex <= 0} className={`p-1.5 rounded-lg ${historyIndex > 0 ? theme.hover : 'opacity-30'}`} title="Undo">↩️</button>
-          <button onClick={redo} disabled={historyIndex >= history.length - 1} className={`p-1.5 rounded-lg ${historyIndex < history.length - 1 ? theme.hover : 'opacity-30'}`} title="Redo">↪️</button>
-
-          <div className={`w-px h-6 mx-1 ${theme.border}`} />
-
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom Out">−</button>
-          <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom In">+</button>
-          <button onClick={fitToScreen} className={`p-1 rounded ${theme.hover} text-xs`} title="Fit to Screen">⛶</button>
-          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className={`p-1 rounded ${theme.hover} text-xs`} title="Reset View (100%)">1:1</button>
-
-          <div className={`w-px h-6 mx-1 ${theme.border}`} />
-
-          {/* Session Timer */}
-          <div className={`px-2 py-1 rounded-lg text-xs ${theme.hover} cursor-pointer`} onClick={() => setActivePanel(activePanel === 'timer' ? null : 'timer')} title="Session Timer">
-            ⏱️ {formatTime(sessionSeconds)}
-          </div>
-
-          <button onClick={() => setShowExportModal(true)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Export">💾</button>
-          <button onClick={() => setActivePanel(activePanel === 'sounds' ? null : 'sounds')} className={`p-1.5 rounded-lg ${Object.keys(activeSounds).length > 0 || isPlaying ? 'bg-green-500 text-white' : theme.hover}`} title="Sounds">
-            {isPlaying || Object.keys(activeSounds).length > 0 ? '🎵' : '🎶'}
+          {/* Wellness quick toggles */}
+          <button
+            onClick={() => setActivePanel(activePanel === 'sounds' ? null : 'sounds')}
+            className={`
+              p-2 rounded-xl transition-all
+              ${Object.keys(activeSounds).length > 0 || isPlaying
+                ? 'bg-green-500/20 text-green-500'
+                : theme.hover
+              }
+            `}
+            title="Ambient Sounds"
+          >
+            🎶
           </button>
-          <button onClick={() => setShowBreathing(!showBreathing)} className={`p-1.5 rounded-lg ${showBreathing ? 'bg-blue-500 text-white' : theme.hover}`} title="Breathing Exercise">
+          <button
+            onClick={() => setShowBreathing(!showBreathing)}
+            className={`p-2 rounded-xl transition-all ${showBreathing ? 'bg-blue-500/20 text-blue-500' : theme.hover}`}
+            title="Breathing"
+          >
             🫁
           </button>
-          <button onClick={() => setShowDailyPrompt(!showDailyPrompt)} className={`p-1.5 rounded-lg ${showDailyPrompt ? 'bg-yellow-500 text-white' : theme.hover}`} title="Daily Prompt">
-            💡
+
+          <div className={`w-px h-6 mx-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+          {/* Export & Settings */}
+          <button
+            onClick={() => setShowExportModal(true)}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Export"
+          >
+            💾
           </button>
-          <button onClick={() => setFocusMode(!focusMode)} className={`p-1.5 rounded-lg ${focusMode ? 'bg-purple-500 text-white' : theme.hover}`} title="Focus Mode (F)">
-            {focusMode ? '🎯' : '👁️'}
+          <button
+            onClick={() => setFocusMode(true)}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Focus Mode (F)"
+          >
+            🎯
           </button>
-          <button onClick={() => setDarkMode(!darkMode)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Dark Mode">
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Toggle Theme"
+          >
             {darkMode ? '☀️' : '🌙'}
           </button>
 
           {isMobile && (
-            <button onClick={() => setShowMobileTools(!showMobileTools)} className={`p-1.5 rounded-lg ${theme.hover}`}>
+            <button
+              onClick={() => setShowMobileTools(!showMobileTools)}
+              className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            >
               🎨
             </button>
           )}
@@ -2135,6 +1710,7 @@ export default function ColoringGame() {
               ] : [
                 { id: 'tools', icon: '🖌️', label: 'Tools' },
                 { id: 'colors', icon: '🎨', label: 'Colors' },
+                { id: 'gradient', icon: '🌈', label: 'Gradient' },
                 { id: 'canvas', icon: '⚙️', label: 'Canvas' },
               ]}
               activeTab={leftSidebarTab}
@@ -2186,6 +1762,33 @@ export default function ColoringGame() {
                   selectedHarmony={selectedHarmony}
                   setSelectedHarmony={setSelectedHarmony}
                   harmonyColors={harmonyColors}
+                  darkMode={darkMode}
+                />
+              )}
+              {leftSidebarTab === 'gradient' && (
+                <GradientEditor
+                  gradientEnabled={gradientEnabled}
+                  setGradientEnabled={setGradientEnabled}
+                  gradientType={gradientType}
+                  setGradientType={setGradientType}
+                  gradientAngle={gradientAngle}
+                  setGradientAngle={setGradientAngle}
+                  gradientColors={gradientColors}
+                  gradientCSS={gradientCSS}
+                  addColorStop={addColorStop}
+                  removeColorStop={removeColorStop}
+                  updateColorStop={updateColorStop}
+                  presetGradients={presetGradients}
+                  customGradients={customGradients}
+                  loadPreset={loadPreset}
+                  saveCustomGradient={saveCustomGradient}
+                  deleteCustomGradient={deleteCustomGradient}
+                  loadCustomGradient={loadCustomGradient}
+                  reverseGradient={reverseGradient}
+                  rotateGradient={rotateGradient}
+                  gradientTypes={gradientTypes}
+                  radialPosition={radialPosition}
+                  setRadialPosition={setRadialPosition}
                   darkMode={darkMode}
                 />
               )}
@@ -2276,11 +1879,17 @@ export default function ColoringGame() {
               ref={canvasRef}
               viewBox="0 0 420 300"
               className="w-full h-full touch-none"
-              style={{ backgroundColor }}
+              style={{
+                backgroundColor,
+                cursor: (activeTool === 'brush' || activeTool === 'eraser') ? 'none'
+                  : activeTool === 'eyedropper' ? 'crosshair'
+                  : activeTool === 'fill' ? 'pointer'
+                  : 'default'
+              }}
               onMouseDown={handlePointerDown}
               onMouseMove={handlePointerMove}
               onMouseUp={handlePointerUp}
-              onMouseLeave={handlePointerUp}
+              onMouseLeave={(e) => { setCursorPosition(null); handlePointerUp(e); }}
               onTouchStart={handlePointerDown}
               onTouchMove={handlePointerMove}
               onTouchEnd={handlePointerUp}
@@ -2416,17 +2025,95 @@ export default function ColoringGame() {
                   />
                 );
               })}
+
+              {/* Brush cursor preview */}
+              {cursorPosition && !isDrawing && (activeTool === 'brush' || activeTool === 'eraser') && (
+                <g pointerEvents="none">
+                  {/* Outer ring */}
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r={brushSize / 2}
+                    fill="none"
+                    stroke={darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)'}
+                    strokeWidth="1"
+                  />
+                  {/* Color preview fill */}
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r={brushSize / 2 - 1}
+                    fill={activeTool === 'eraser' ? 'rgba(255,255,255,0.3)' : selectedColor}
+                    opacity={activeTool === 'eraser' ? 0.5 : 0.4}
+                  />
+                  {/* Center dot */}
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r="1.5"
+                    fill={darkMode ? '#fff' : '#000'}
+                  />
+                </g>
+              )}
+
+              {/* Eyedropper cursor */}
+              {cursorPosition && activeTool === 'eyedropper' && (
+                <g pointerEvents="none">
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r="12"
+                    fill="none"
+                    stroke={darkMode ? '#fff' : '#000'}
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r="6"
+                    fill={selectedColor}
+                    stroke={darkMode ? '#fff' : '#000'}
+                    strokeWidth="1"
+                  />
+                </g>
+              )}
             </svg>
           </div>
+
+          {/* Floating Toolbar */}
+          {!focusMode && (
+            <FloatingToolbar
+              activeTool={activeTool}
+              setActiveTool={setActiveTool}
+              brushSize={brushSize}
+              setBrushSize={setBrushSize}
+              selectedColor={selectedColor}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={historyIndex > 0}
+              canRedo={historyIndex < history.length - 1}
+              onZoomIn={() => setZoom(z => Math.min(4, z + 0.25))}
+              onZoomOut={() => setZoom(z => Math.max(0.25, z - 0.25))}
+              onZoomReset={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+              zoom={zoom}
+              onToggleGrid={() => setShowGrid(!showGrid)}
+              showGrid={showGrid}
+              recentColors={recentColors}
+              onSelectColor={setSelectedColor}
+              darkMode={darkMode}
+              position="bottom"
+            />
+          )}
         </div>
 
-        {/* Right Sidebar - Layers & Wellness (desktop only) - hidden on tablet/mobile and in focus mode */}
+        {/* Right Sidebar - Layers, Wellness & Mood (desktop only) - hidden on tablet/mobile and in focus mode */}
         {isDesktop && !focusMode && (
           <div className={`w-56 ${theme.panel} border-l ${theme.border} flex flex-col overflow-hidden`}>
             <TabPanel
               tabs={[
                 { id: 'layers', icon: '📑', label: 'Layers' },
                 { id: 'wellness', icon: '🧘', label: 'Wellness' },
+                { id: 'mood', icon: '💭', label: 'Mood' },
               ]}
               activeTab={rightSidebarTab}
               onChange={setRightSidebarTab}
@@ -2509,6 +2196,28 @@ export default function ColoringGame() {
                   currentTrack={currentTrack}
                   playTrack={playTrack}
                   stopMusic={stopMusic}
+                  darkMode={darkMode}
+                />
+              )}
+              {rightSidebarTab === 'mood' && (
+                <MoodTracker
+                  currentMood={currentMood}
+                  moodNote={moodNote}
+                  setMoodNote={setMoodNote}
+                  selectedActivities={selectedActivities}
+                  toggleActivity={toggleActivity}
+                  showMoodPrompt={showMoodPrompt}
+                  dismissMoodPrompt={dismissMoodPrompt}
+                  showMoodHistory={showMoodHistory}
+                  setShowMoodHistory={setShowMoodHistory}
+                  groupedHistory={groupedHistory}
+                  recordMood={recordMood}
+                  deleteMoodEntry={deleteMoodEntry}
+                  clearMoodHistory={clearMoodHistory}
+                  moodStats={moodStats}
+                  moodTrend={moodTrend}
+                  moodOptions={moodOptions}
+                  activityTags={activityTags}
                   darkMode={darkMode}
                 />
               )}
@@ -2682,6 +2391,22 @@ export default function ColoringGame() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Template Gallery Modal */}
+      {showTemplateGallery && (
+        <TemplateGallery
+          templates={drawings}
+          categories={templateCategories}
+          getTemplatesByCategory={getTemplatesByCategory}
+          currentTemplate={currentDrawing}
+          onSelectTemplate={(index) => {
+            setCurrentDrawing(index);
+            setFilledColors({});
+          }}
+          onClose={() => setShowTemplateGallery(false)}
+          darkMode={darkMode}
+        />
       )}
 
       {/* Music indicator */}
