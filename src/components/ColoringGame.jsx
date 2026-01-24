@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Import modular components
 import { TabPanel, BottomSheet } from './ui';
-import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor } from './panels';
+import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor, TemplateGallery } from './panels';
 import { StatusBar } from './toolbar';
 import { GridOverlay, LazyBrushIndicator, FloatingToolbar } from './canvas';
 import { useTouchGestures, useMusic, useAmbientSounds, hexToHSL, hslToHex, generateColorHarmony } from './hooks';
@@ -276,6 +276,7 @@ export default function ColoringGame() {
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showMobileTools, setShowMobileTools] = useState(false);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [recentColors, setRecentColors] = useState([]);
   const [hexInput, setHexInput] = useState('#FFB5BA');
 
@@ -1224,31 +1225,16 @@ export default function ColoringGame() {
             Calm Drawing
           </span>
 
-          <div className="relative">
-            <button
-              onClick={() => setActivePanel(activePanel === 'pictures' ? null : 'pictures')}
-              className={`px-2 py-1 rounded-lg text-sm flex items-center gap-1 ${theme.hover} border ${theme.border}`}
-            >
-              {drawing.icon} <span className="hidden sm:inline">{drawing.name}</span>
-              <span className="text-xs opacity-50">▼</span>
-            </button>
-            {activePanel === 'pictures' && (
-              <div className={`absolute top-full left-0 mt-1 ${theme.panel} rounded-xl shadow-2xl border ${theme.border} p-2 z-50 w-64`}>
-                <div className="grid grid-cols-3 gap-1">
-                  {drawings.map((d, i) => (
-                    <button
-                      key={d.name}
-                      onClick={() => { setCurrentDrawing(i); setActivePanel(null); }}
-                      className={`p-2 rounded-lg text-center transition-all ${currentDrawing === i ? theme.active : theme.hover}`}
-                    >
-                      <div className="text-2xl">{d.icon}</div>
-                      <div className="text-xs truncate">{d.name}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setShowTemplateGallery(true)}
+            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 ${theme.hover} border ${theme.border} transition-all hover:shadow-md`}
+          >
+            <span className="text-lg">{drawing.icon}</span>
+            <span className="hidden sm:inline font-medium">{drawing.name}</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+              {drawings.length}
+            </span>
+          </button>
         </div>
 
         {/* Center: Tools (desktop) */}
@@ -2259,6 +2245,22 @@ export default function ColoringGame() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Template Gallery Modal */}
+      {showTemplateGallery && (
+        <TemplateGallery
+          templates={drawings}
+          categories={templateCategories}
+          getTemplatesByCategory={getTemplatesByCategory}
+          currentTemplate={currentDrawing}
+          onSelectTemplate={(index) => {
+            setCurrentDrawing(index);
+            setFilledColors({});
+          }}
+          onClose={() => setShowTemplateGallery(false)}
+          darkMode={darkMode}
+        />
       )}
 
       {/* Music indicator */}

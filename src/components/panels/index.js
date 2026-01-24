@@ -6,3 +6,4 @@ export { default as WellnessPanel } from './WellnessPanel';
 export { default as CanvasPanel } from './CanvasPanel';
 export { default as GradientEditor } from './GradientEditor';
 export { default as MoodTracker } from './MoodTracker';
+export { default as TemplateGallery } from './TemplateGallery';
