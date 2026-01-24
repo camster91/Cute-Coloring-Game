@@ -394,7 +394,11 @@ export default function ColoringGame() {
     setRadialPosition,
   } = useGradientState();
 
-  // Touch gestures for mobile (pinch-to-zoom, two-finger pan)
+  // Touch gestures for mobile (pinch-to-zoom, two-finger pan, tap gestures)
+  // Note: undo/redo are defined later but work due to closure over refs
+  const undoRef = useRef(null);
+  const redoRef = useRef(null);
+
   useTouchGestures({
     targetRef: containerRef,
     onZoom: (delta) => {
@@ -403,6 +407,8 @@ export default function ColoringGame() {
     onPan: (delta) => {
       setPan(p => ({ x: p.x + delta.x, y: p.y + delta.y }));
     },
+    onUndo: () => undoRef.current?.(),
+    onRedo: () => redoRef.current?.(),
   });
 
   // ============ EFFECTS ============
@@ -670,6 +676,12 @@ export default function ColoringGame() {
       setHistoryIndex(i => i + 1);
     }
   }, [history, historyIndex]);
+
+  // Update refs for touch gesture callbacks
+  useEffect(() => {
+    undoRef.current = undo;
+    redoRef.current = redo;
+  }, [undo, redo]);
 
   // ============ LAYER FUNCTIONS ============
 
@@ -1216,87 +1228,106 @@ export default function ColoringGame() {
         </div>
       )}
 
-      {/* Top Bar - hidden in focus mode */}
+      {/* Top Bar - Simplified, clean header */}
       {!focusMode && (
-      <div className={`flex items-center justify-between px-2 py-1.5 ${theme.panel} shadow-sm z-20 gap-2`}>
-        {/* Left: Logo + Drawing selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent hidden sm:block">
-            Calm Drawing
-          </span>
-
+      <div className={`flex items-center justify-between px-3 py-2 ${theme.panel} shadow-sm z-20`}>
+        {/* Left: Logo + Template selector */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setShowTemplateGallery(true)}
-            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 ${theme.hover} border ${theme.border} transition-all hover:shadow-md`}
+            className={`
+              flex items-center gap-2 px-3 py-2 rounded-xl
+              ${theme.hover} border ${theme.border}
+              transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]
+            `}
           >
-            <span className="text-lg">{drawing.icon}</span>
-            <span className="hidden sm:inline font-medium">{drawing.name}</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-              {drawings.length}
-            </span>
+            <span className="text-xl">{drawing.icon}</span>
+            <div className="hidden sm:block text-left">
+              <div className="text-sm font-medium leading-tight">{drawing.name}</div>
+              <div className={`text-[10px] ${theme.textMuted}`}>Tap to change</div>
+            </div>
           </button>
+
+          {/* Quick Color Indicator */}
+          <div className="hidden md:flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-lg border-2 border-white shadow-md cursor-pointer hover:scale-110 transition-transform"
+              style={{ backgroundColor: selectedColor }}
+              onClick={() => setLeftSidebarTab('colors')}
+              title="Current Color"
+            />
+            <div className={`text-xs font-mono ${theme.textMuted}`}>{brushSize}px</div>
+          </div>
         </div>
 
-        {/* Center: Tools (desktop) */}
-        {!isMobile && (
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            {[
-              { id: 'brush', icon: '🖌️', label: 'Brush' },
-              { id: 'eraser', icon: '🧽', label: 'Eraser' },
-              { id: 'fill', icon: '🪣', label: 'Fill' },
-              { id: 'shape', icon: '⬜', label: 'Shapes' },
-            ].map(tool => (
-              <button
-                key={tool.id}
-                onClick={() => setActiveTool(tool.id)}
-                className={`px-3 py-1.5 rounded-md text-sm transition-all ${activeTool === tool.id ? theme.active : theme.hover}`}
-                title={tool.label}
-              >
-                {tool.icon}
-              </button>
-            ))}
+        {/* Center: Session info (desktop) */}
+        <div className="hidden md:flex items-center gap-4">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            <span className="text-sm">⏱️</span>
+            <span className="text-sm font-medium tabular-nums">{formatTime(sessionSeconds)}</span>
           </div>
-        )}
+          {(isPlaying || Object.keys(activeSounds).length > 0) && (
+            <div className="flex items-center gap-1 text-green-500 animate-pulse">
+              <span>🎵</span>
+              <span className="text-xs">Playing</span>
+            </div>
+          )}
+        </div>
 
-        {/* Right: Actions */}
+        {/* Right: Quick actions */}
         <div className="flex items-center gap-1">
-          <button onClick={undo} disabled={historyIndex <= 0} className={`p-1.5 rounded-lg ${historyIndex > 0 ? theme.hover : 'opacity-30'}`} title="Undo">↩️</button>
-          <button onClick={redo} disabled={historyIndex >= history.length - 1} className={`p-1.5 rounded-lg ${historyIndex < history.length - 1 ? theme.hover : 'opacity-30'}`} title="Redo">↪️</button>
-
-          <div className={`w-px h-6 mx-1 ${theme.border}`} />
-
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom Out">−</button>
-          <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className={`p-1 rounded ${theme.hover}`} title="Zoom In">+</button>
-          <button onClick={fitToScreen} className={`p-1 rounded ${theme.hover} text-xs`} title="Fit to Screen">⛶</button>
-          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className={`p-1 rounded ${theme.hover} text-xs`} title="Reset View (100%)">1:1</button>
-
-          <div className={`w-px h-6 mx-1 ${theme.border}`} />
-
-          {/* Session Timer */}
-          <div className={`px-2 py-1 rounded-lg text-xs ${theme.hover} cursor-pointer`} onClick={() => setActivePanel(activePanel === 'timer' ? null : 'timer')} title="Session Timer">
-            ⏱️ {formatTime(sessionSeconds)}
-          </div>
-
-          <button onClick={() => setShowExportModal(true)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Export">💾</button>
-          <button onClick={() => setActivePanel(activePanel === 'sounds' ? null : 'sounds')} className={`p-1.5 rounded-lg ${Object.keys(activeSounds).length > 0 || isPlaying ? 'bg-green-500 text-white' : theme.hover}`} title="Sounds">
-            {isPlaying || Object.keys(activeSounds).length > 0 ? '🎵' : '🎶'}
+          {/* Wellness quick toggles */}
+          <button
+            onClick={() => setActivePanel(activePanel === 'sounds' ? null : 'sounds')}
+            className={`
+              p-2 rounded-xl transition-all
+              ${Object.keys(activeSounds).length > 0 || isPlaying
+                ? 'bg-green-500/20 text-green-500'
+                : theme.hover
+              }
+            `}
+            title="Ambient Sounds"
+          >
+            🎶
           </button>
-          <button onClick={() => setShowBreathing(!showBreathing)} className={`p-1.5 rounded-lg ${showBreathing ? 'bg-blue-500 text-white' : theme.hover}`} title="Breathing Exercise">
+          <button
+            onClick={() => setShowBreathing(!showBreathing)}
+            className={`p-2 rounded-xl transition-all ${showBreathing ? 'bg-blue-500/20 text-blue-500' : theme.hover}`}
+            title="Breathing"
+          >
             🫁
           </button>
-          <button onClick={() => setShowDailyPrompt(!showDailyPrompt)} className={`p-1.5 rounded-lg ${showDailyPrompt ? 'bg-yellow-500 text-white' : theme.hover}`} title="Daily Prompt">
-            💡
+
+          <div className={`w-px h-6 mx-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+          {/* Export & Settings */}
+          <button
+            onClick={() => setShowExportModal(true)}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Export"
+          >
+            💾
           </button>
-          <button onClick={() => setFocusMode(!focusMode)} className={`p-1.5 rounded-lg ${focusMode ? 'bg-purple-500 text-white' : theme.hover}`} title="Focus Mode (F)">
-            {focusMode ? '🎯' : '👁️'}
+          <button
+            onClick={() => setFocusMode(true)}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Focus Mode (F)"
+          >
+            🎯
           </button>
-          <button onClick={() => setDarkMode(!darkMode)} className={`p-1.5 rounded-lg ${theme.hover}`} title="Dark Mode">
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Toggle Theme"
+          >
             {darkMode ? '☀️' : '🌙'}
           </button>
 
           {isMobile && (
-            <button onClick={() => setShowMobileTools(!showMobileTools)} className={`p-1.5 rounded-lg ${theme.hover}`}>
+            <button
+              onClick={() => setShowMobileTools(!showMobileTools)}
+              className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            >
               🎨
             </button>
           )}

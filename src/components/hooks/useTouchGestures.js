@@ -1,18 +1,28 @@
 import { useRef, useCallback, useEffect } from 'react';
 
 /**
- * Hook for handling touch gestures (pinch-to-zoom, two-finger pan)
+ * Hook for handling touch gestures
+ * - Pinch-to-zoom
+ * - Two-finger pan
+ * - Two-finger tap for undo
+ * - Three-finger tap for redo
+ *
  * @param {Object} options
  * @param {function} options.onZoom - Callback for zoom changes (delta)
  * @param {function} options.onPan - Callback for pan changes ({x, y})
+ * @param {function} options.onUndo - Callback for two-finger tap (undo)
+ * @param {function} options.onRedo - Callback for three-finger tap (redo)
  * @param {React.RefObject} options.targetRef - Ref to the target element
  */
-export default function useTouchGestures({ onZoom, onPan, targetRef }) {
+export default function useTouchGestures({ onZoom, onPan, onUndo, onRedo, targetRef }) {
   const touchStateRef = useRef({
     isMultiTouch: false,
     initialDistance: 0,
     initialCenter: { x: 0, y: 0 },
     lastCenter: { x: 0, y: 0 },
+    touchStartTime: 0,
+    touchStartCount: 0,
+    hasMoved: false,
   });
 
   const getDistance = useCallback((touch1, touch2) => {
@@ -29,21 +39,35 @@ export default function useTouchGestures({ onZoom, onPan, targetRef }) {
   }, []);
 
   const handleTouchStart = useCallback((e) => {
-    if (e.touches.length === 2) {
+    const touchCount = e.touches.length;
+
+    // Track touch start for tap detection
+    touchStateRef.current.touchStartTime = Date.now();
+    touchStateRef.current.touchStartCount = touchCount;
+    touchStateRef.current.hasMoved = false;
+
+    if (touchCount === 2) {
       e.preventDefault();
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
       touchStateRef.current = {
+        ...touchStateRef.current,
         isMultiTouch: true,
         initialDistance: getDistance(touch1, touch2),
         initialCenter: getCenter(touch1, touch2),
         lastCenter: getCenter(touch1, touch2),
       };
+    } else if (touchCount === 3) {
+      e.preventDefault();
+      touchStateRef.current.isMultiTouch = true;
     }
   }, [getDistance, getCenter]);
 
   const handleTouchMove = useCallback((e) => {
+    // Mark that we've moved (not a tap)
+    touchStateRef.current.hasMoved = true;
+
     if (e.touches.length === 2 && touchStateRef.current.isMultiTouch) {
       e.preventDefault();
       const touch1 = e.touches[0];
@@ -81,10 +105,24 @@ export default function useTouchGestures({ onZoom, onPan, targetRef }) {
   }, [getDistance, getCenter, onZoom, onPan]);
 
   const handleTouchEnd = useCallback((e) => {
+    const { touchStartTime, touchStartCount, hasMoved } = touchStateRef.current;
+    const touchDuration = Date.now() - touchStartTime;
+
+    // Detect quick taps (< 300ms and no significant movement)
+    if (!hasMoved && touchDuration < 300) {
+      if (touchStartCount === 2 && e.touches.length === 0) {
+        // Two-finger tap = undo
+        onUndo?.();
+      } else if (touchStartCount === 3 && e.touches.length === 0) {
+        // Three-finger tap = redo
+        onRedo?.();
+      }
+    }
+
     if (e.touches.length < 2) {
       touchStateRef.current.isMultiTouch = false;
     }
-  }, []);
+  }, [onUndo, onRedo]);
 
   useEffect(() => {
     const target = targetRef?.current;
