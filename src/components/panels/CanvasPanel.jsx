@@ -15,10 +15,6 @@ export default function CanvasPanel({
   setGridSize,
   snapToGrid,
   setSnapToGrid,
-  // Templates/drawings
-  drawings,
-  currentDrawing,
-  setCurrentDrawing,
   // Export
   onExport,
   exportFormat,
@@ -27,7 +23,6 @@ export default function CanvasPanel({
   setExportQuality,
   // Clear
   onClearCanvas,
-  onResetCanvas,
   // Theme
   darkMode = false,
 }) {
@@ -52,21 +47,6 @@ export default function CanvasPanel({
 
   return (
     <div className="space-y-4">
-      {/* Template Selection */}
-      <Section title="Template">
-        <select
-          value={currentDrawing}
-          onChange={(e) => setCurrentDrawing(parseInt(e.target.value))}
-          className={`w-full px-2 py-1.5 text-xs rounded border ${theme.input}`}
-        >
-          {drawings.map((drawing, index) => (
-            <option key={index} value={index}>
-              {drawing.icon} {drawing.name}
-            </option>
-          ))}
-        </select>
-      </Section>
-
       {/* Background */}
       <Section title="Background">
         <div className="flex flex-wrap gap-1">
@@ -159,20 +139,12 @@ export default function CanvasPanel({
 
       {/* Canvas Actions */}
       <Section title="Canvas Actions">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={onClearCanvas}
-            className={`px-2 py-1.5 text-xs rounded-lg ${theme.hover} border ${theme.border}`}
-          >
-            🗑 Clear Drawing
-          </button>
-          <button
-            onClick={onResetCanvas}
-            className={`px-2 py-1.5 text-xs rounded-lg ${theme.hover} border ${theme.border}`}
-          >
-            🔄 Reset All
-          </button>
-        </div>
+        <button
+          onClick={onClearCanvas}
+          className={`w-full px-3 py-2 text-sm rounded-lg ${theme.hover} border ${theme.border}`}
+        >
+          🗑 Clear Canvas
+        </button>
       </Section>
     </div>
   );

@@ -2,13 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Import modular components
 import { TabPanel, BottomSheet } from './ui';
-import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor, TemplateGallery } from './panels';
+import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor } from './panels';
 import { StatusBar } from './toolbar';
 import { GridOverlay, LazyBrushIndicator, FloatingToolbar } from './canvas';
 import { useTouchGestures, useMusic, useAmbientSounds, hexToHSL, hslToHex, generateColorHarmony } from './hooks';
 import useMoodTracking, { moodOptions, activityTags } from './hooks/useMoodTracking';
 import useGradientState, { presetGradients, gradientTypes } from './hooks/useGradientState';
-import { allTemplates as drawings, templateCategories, getTemplatesByCategory } from './templates';
 
 // ============ CONSTANTS ============
 
@@ -171,8 +170,6 @@ const dailyPrompts = [
   { text: "Music as shapes and colors", category: "creative", icon: "🎼" },
 ];
 
-// Templates are now imported from ./templates
-
 // ============ SMOOTH PATH UTILITY ============
 
 const smoothPath = (points, stabilization = 0) => {
@@ -230,11 +227,9 @@ const formatTime = (seconds) => {
 
 export default function ColoringGame() {
   // Core state
-  const [currentDrawing, setCurrentDrawing] = useState(0);
   const [currentPalette, setCurrentPalette] = useState('soft');
   const [selectedColor, setSelectedColor] = useState(colorPalettes.soft[0]);
   const [colorOpacity, setColorOpacity] = useState(1);
-  const [filledColors, setFilledColors] = useState({});
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
   const [zoom, setZoom] = useState(() => {
     const saved = localStorage.getItem('calmDrawing_zoom');
@@ -242,7 +237,6 @@ export default function ColoringGame() {
   });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hasInitializedZoom, setHasInitializedZoom] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
 
   // Tool state
   const [activeTool, setActiveTool] = useState('brush');
@@ -276,7 +270,6 @@ export default function ColoringGame() {
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showMobileTools, setShowMobileTools] = useState(false);
-  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [recentColors, setRecentColors] = useState([]);
   const [hexInput, setHexInput] = useState('#FFB5BA');
 
@@ -647,7 +640,6 @@ export default function ColoringGame() {
   const saveToHistory = useCallback(() => {
     const state = {
       layers: JSON.parse(JSON.stringify(layers)),
-      filledColors: { ...filledColors },
     };
 
     setHistory(prev => {
@@ -657,13 +649,12 @@ export default function ColoringGame() {
       return newHistory;
     });
     setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-  }, [layers, filledColors, historyIndex]);
+  }, [layers, historyIndex]);
 
   const undo = useCallback(() => {
     if (historyIndex > 0) {
       const prevState = history[historyIndex - 1];
       setLayers(prevState.layers);
-      setFilledColors(prevState.filledColors);
       setHistoryIndex(i => i - 1);
     }
   }, [history, historyIndex]);
@@ -672,7 +663,6 @@ export default function ColoringGame() {
     if (historyIndex < history.length - 1) {
       const nextState = history[historyIndex + 1];
       setLayers(nextState.layers);
-      setFilledColors(nextState.filledColors);
       setHistoryIndex(i => i + 1);
     }
   }, [history, historyIndex]);
@@ -982,30 +972,8 @@ export default function ColoringGame() {
     }
   }, [isDrawing, activeTool, currentPath, currentShape, activeLayerId, recentColors, selectedColor]);
 
-  const handlePathClick = (pathId) => {
-    if (activeTool !== 'fill') return;
-    saveToHistory();
-
-    const key = `${currentDrawing}-${pathId}`;
-    setFilledColors(prev => ({ ...prev, [key]: selectedColor }));
-
-    const drawing = drawings[currentDrawing];
-    if (drawing.paths.length > 0) {
-      const newFilled = { ...filledColors, [key]: selectedColor };
-      if (drawing.paths.every(p => newFilled[`${currentDrawing}-${p.id}`])) {
-        setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 2500);
-      }
-    }
-  };
-
   const clearDrawing = () => {
     saveToHistory();
-    setFilledColors(prev => {
-      const newColors = { ...prev };
-      Object.keys(newColors).filter(k => k.startsWith(`${currentDrawing}-`)).forEach(k => delete newColors[k]);
-      return newColors;
-    });
     setLayers(prev => prev.map(l => ({ ...l, paths: [] })));
   };
 
@@ -1091,7 +1059,7 @@ export default function ColoringGame() {
         const url = URL.createObjectURL(svgBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `artwork-${drawings[currentDrawing].name.toLowerCase().replace(' ', '-')}-${Date.now()}.svg`;
+        a.download = `calm-drawing-${Date.now()}.svg`;
         a.click();
         URL.revokeObjectURL(url);
         setIsSaving(false);
@@ -1115,7 +1083,7 @@ export default function ColoringGame() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `artwork-${drawings[currentDrawing].name.toLowerCase().replace(' ', '-')}-${Date.now()}.${format}`;
+          a.download = `calm-drawing-${Date.now()}.${format}`;
           a.click();
           URL.revokeObjectURL(url);
           URL.revokeObjectURL(svgUrl);
@@ -1137,8 +1105,6 @@ export default function ColoringGame() {
   };
 
   // ============ RENDER ============
-
-  const drawing = drawings[currentDrawing];
 
   // Calculate canvas size to fill available space
   // Mobile: no sidebars, Tablet: one sidebar (224px), Desktop: two sidebars (448px)
@@ -1346,22 +1312,15 @@ export default function ColoringGame() {
       {/* Top Bar - Simplified, clean header */}
       {!focusMode && (
       <div className={`flex items-center justify-between px-3 py-2 ${theme.panel} shadow-sm z-20`}>
-        {/* Left: Logo + Template selector */}
+        {/* Left: App Logo & Tools */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowTemplateGallery(true)}
-            className={`
-              flex items-center gap-2 px-3 py-2 rounded-xl
-              ${theme.hover} border ${theme.border}
-              transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]
-            `}
-          >
-            <span className="text-xl">{drawing.icon}</span>
+          <div className="flex items-center gap-2 px-3 py-2">
+            <span className="text-xl">🎨</span>
             <div className="hidden sm:block text-left">
-              <div className="text-sm font-medium leading-tight">{drawing.name}</div>
-              <div className={`text-[10px] ${theme.textMuted}`}>Tap to change</div>
+              <div className="text-sm font-medium leading-tight">Calm Drawing</div>
+              <div className={`text-[10px] ${theme.textMuted}`}>Free canvas</div>
             </div>
-          </button>
+          </div>
 
           {/* Quick Color Indicator */}
           <div className="hidden md:flex items-center gap-2">
@@ -1839,16 +1798,12 @@ export default function ColoringGame() {
                   setGridSize={setGridSize}
                   snapToGrid={snapToGrid}
                   setSnapToGrid={setSnapToGrid}
-                  drawings={drawings}
-                  currentDrawing={currentDrawing}
-                  setCurrentDrawing={setCurrentDrawing}
                   onExport={() => setShowExportModal(true)}
                   exportFormat={exportFormat}
                   setExportFormat={setExportFormat}
                   exportQuality={exportQuality}
                   setExportQuality={setExportQuality}
                   onClearCanvas={clearDrawing}
-                  onResetCanvas={() => { clearDrawing(); setFilledColors({}); }}
                   darkMode={darkMode}
                 />
               )}
@@ -1866,15 +1821,6 @@ export default function ColoringGame() {
               transform: `translate(${pan.x}px, ${pan.y}px)`,
             }}
           >
-            {showCelebration && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/90 dark:bg-gray-900/90 z-20 animate-pulse">
-                <div className="text-center">
-                  <div className="text-6xl mb-2 animate-bounce">🌟</div>
-                  <p className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">Beautiful!</p>
-                </div>
-              </div>
-            )}
-
             <svg
               ref={canvasRef}
               viewBox="0 0 420 300"
@@ -2007,24 +1953,6 @@ export default function ColoringGame() {
               {currentShape && (
                 <path d={shapeToPath(currentShape)} fill={currentShape.fill ? currentShape.color : 'none'} stroke={currentShape.color} strokeWidth={currentShape.strokeWidth} opacity={0.6} strokeDasharray="4,4" />
               )}
-
-              {/* Pre-made drawings */}
-              {drawing.paths.map(path => {
-                const fillColor = filledColors[`${currentDrawing}-${path.id}`] || 'transparent';
-                return (
-                  <path
-                    key={path.id}
-                    d={path.d}
-                    fill={fillColor}
-                    stroke={darkMode ? '#666' : '#9CA3AF'}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    className="transition-colors duration-200"
-                    onClick={() => handlePathClick(path.id)}
-                    style={{ cursor: activeTool === 'fill' ? 'pointer' : 'default', pointerEvents: activeTool === 'fill' ? 'auto' : 'none' }}
-                  />
-                );
-              })}
 
               {/* Brush cursor preview */}
               {cursorPosition && !isDrawing && (activeTool === 'brush' || activeTool === 'eraser') && (
@@ -2391,22 +2319,6 @@ export default function ColoringGame() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Template Gallery Modal */}
-      {showTemplateGallery && (
-        <TemplateGallery
-          templates={drawings}
-          categories={templateCategories}
-          getTemplatesByCategory={getTemplatesByCategory}
-          currentTemplate={currentDrawing}
-          onSelectTemplate={(index) => {
-            setCurrentDrawing(index);
-            setFilledColors({});
-          }}
-          onClose={() => setShowTemplateGallery(false)}
-          darkMode={darkMode}
-        />
       )}
 
       {/* Music indicator */}
