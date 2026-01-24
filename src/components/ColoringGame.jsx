@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TabPanel, BottomSheet } from './ui';
 import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor } from './panels';
 import { StatusBar } from './toolbar';
-import { GridOverlay, LazyBrushIndicator } from './canvas';
+import { GridOverlay, LazyBrushIndicator, FloatingToolbar } from './canvas';
 import { useTouchGestures, useMusic, useAmbientSounds, hexToHSL, hslToHex, generateColorHarmony } from './hooks';
 import useMoodTracking, { moodOptions, activityTags } from './hooks/useMoodTracking';
 import useGradientState, { presetGradients, gradientTypes } from './hooks/useGradientState';
@@ -300,6 +300,9 @@ export default function ColoringGame() {
   const lazyBrushPosRef = useRef({ x: 0, y: 0 }); // Current brush position
   const [lazyBrushIndicator, setLazyBrushIndicator] = useState(null); // Visual indicator
 
+  // Brush cursor preview
+  const [cursorPosition, setCursorPosition] = useState(null);
+
   // Color Harmony
   const [showColorHarmony, setShowColorHarmony] = useState(false);
   const [selectedHarmony, setSelectedHarmony] = useState('complementary');
@@ -557,6 +560,7 @@ export default function ColoringGame() {
         case 'b': setActiveTool('brush'); break;
         case 'e': if (!ctrlKey) setActiveTool('eraser'); break;
         case 'g': setActiveTool('fill'); break;
+        case 'i': setActiveTool('eyedropper'); break;
         case 'u': setActiveTool('shape'); break;
         case '[': setBrushSize(s => Math.max(1, s - 4)); break;
         case ']': setBrushSize(s => Math.min(100, s + 4)); break;
@@ -816,10 +820,47 @@ export default function ColoringGame() {
         strokeWidth: Math.max(2, brushSize / 4),
         opacity: colorOpacity
       });
+    } else if (activeTool === 'eyedropper') {
+      // Pick color from canvas using pixel sampling
+      e.preventDefault();
+      const svg = canvasRef.current;
+      if (!svg) return;
+
+      // Get the element at the click position
+      const element = document.elementFromPoint(
+        e.touches ? e.touches[0].clientX : e.clientX,
+        e.touches ? e.touches[0].clientY : e.clientY
+      );
+
+      if (element && element.tagName === 'path') {
+        const fill = element.getAttribute('fill');
+        const stroke = element.getAttribute('stroke');
+        const color = fill && fill !== 'none' && fill !== 'transparent' ? fill : stroke;
+        if (color && color !== 'none') {
+          setSelectedColor(color);
+          setHexInput(color);
+          // Add to recent colors
+          setRecentColors(prev => {
+            const filtered = prev.filter(c => c !== color);
+            return [color, ...filtered].slice(0, 10);
+          });
+          // Switch back to brush after picking
+          setActiveTool('brush');
+        }
+      } else {
+        // If clicked on background, pick background color
+        setSelectedColor(backgroundColor);
+        setHexInput(backgroundColor);
+        setActiveTool('brush');
+      }
     }
-  }, [isPanning, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill]);
+  }, [isPanning, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors]);
 
   const handlePointerMove = useCallback((e) => {
+    // Always track cursor position for brush preview
+    const pos = getPointerPosition(e);
+    setCursorPosition(pos);
+
     if (isPanning && e.buttons === 1) {
       const movementX = e.movementX || 0;
       const movementY = e.movementY || 0;
@@ -828,8 +869,6 @@ export default function ColoringGame() {
     }
 
     if (!isDrawing) return;
-
-    const pos = getPointerPosition(e);
 
     if ((activeTool === 'brush' || activeTool === 'eraser') && currentPath) {
       e.preventDefault();
@@ -1708,11 +1747,17 @@ export default function ColoringGame() {
               ref={canvasRef}
               viewBox="0 0 420 300"
               className="w-full h-full touch-none"
-              style={{ backgroundColor }}
+              style={{
+                backgroundColor,
+                cursor: (activeTool === 'brush' || activeTool === 'eraser') ? 'none'
+                  : activeTool === 'eyedropper' ? 'crosshair'
+                  : activeTool === 'fill' ? 'pointer'
+                  : 'default'
+              }}
               onMouseDown={handlePointerDown}
               onMouseMove={handlePointerMove}
               onMouseUp={handlePointerUp}
-              onMouseLeave={handlePointerUp}
+              onMouseLeave={(e) => { setCursorPosition(null); handlePointerUp(e); }}
               onTouchStart={handlePointerDown}
               onTouchMove={handlePointerMove}
               onTouchEnd={handlePointerUp}
@@ -1848,8 +1893,85 @@ export default function ColoringGame() {
                   />
                 );
               })}
+
+              {/* Brush cursor preview */}
+              {cursorPosition && !isDrawing && (activeTool === 'brush' || activeTool === 'eraser') && (
+                <g pointerEvents="none">
+                  {/* Outer ring */}
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r={brushSize / 2}
+                    fill="none"
+                    stroke={darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)'}
+                    strokeWidth="1"
+                  />
+                  {/* Color preview fill */}
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r={brushSize / 2 - 1}
+                    fill={activeTool === 'eraser' ? 'rgba(255,255,255,0.3)' : selectedColor}
+                    opacity={activeTool === 'eraser' ? 0.5 : 0.4}
+                  />
+                  {/* Center dot */}
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r="1.5"
+                    fill={darkMode ? '#fff' : '#000'}
+                  />
+                </g>
+              )}
+
+              {/* Eyedropper cursor */}
+              {cursorPosition && activeTool === 'eyedropper' && (
+                <g pointerEvents="none">
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r="12"
+                    fill="none"
+                    stroke={darkMode ? '#fff' : '#000'}
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx={cursorPosition.x}
+                    cy={cursorPosition.y}
+                    r="6"
+                    fill={selectedColor}
+                    stroke={darkMode ? '#fff' : '#000'}
+                    strokeWidth="1"
+                  />
+                </g>
+              )}
             </svg>
           </div>
+
+          {/* Floating Toolbar */}
+          {!focusMode && (
+            <FloatingToolbar
+              activeTool={activeTool}
+              setActiveTool={setActiveTool}
+              brushSize={brushSize}
+              setBrushSize={setBrushSize}
+              selectedColor={selectedColor}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={historyIndex > 0}
+              canRedo={historyIndex < history.length - 1}
+              onZoomIn={() => setZoom(z => Math.min(4, z + 0.25))}
+              onZoomOut={() => setZoom(z => Math.max(0.25, z - 0.25))}
+              onZoomReset={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+              zoom={zoom}
+              onToggleGrid={() => setShowGrid(!showGrid)}
+              showGrid={showGrid}
+              recentColors={recentColors}
+              onSelectColor={setSelectedColor}
+              darkMode={darkMode}
+              position="bottom"
+            />
+          )}
         </div>
 
         {/* Right Sidebar - Layers, Wellness & Mood (desktop only) - hidden on tablet/mobile and in focus mode */}
