@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Import modular components
 import { TabPanel, BottomSheet } from './ui';
-import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel } from './panels';
+import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor } from './panels';
 import { StatusBar } from './toolbar';
 import { GridOverlay, LazyBrushIndicator } from './canvas';
 import { useTouchGestures, useMusic, useAmbientSounds, hexToHSL, hslToHex, generateColorHarmony } from './hooks';
+import useMoodTracking, { moodOptions, activityTags } from './hooks/useMoodTracking';
+import useGradientState, { presetGradients, gradientTypes } from './hooks/useGradientState';
 import { allTemplates as drawings, templateCategories, getTemplatesByCategory } from './templates';
 
 // ============ CONSTANTS ============
@@ -344,6 +346,49 @@ export default function ColoringGame() {
   const containerRef = useRef(null);
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
   const { startSound, stopSound, setVolume: setAmbientVolume, stopAllSounds } = useAmbientSounds();
+
+  // Mood tracking hook
+  const {
+    currentMood,
+    moodNote,
+    setMoodNote,
+    selectedActivities,
+    toggleActivity,
+    showMoodPrompt,
+    dismissMoodPrompt,
+    showMoodHistory,
+    setShowMoodHistory,
+    groupedHistory,
+    recordMood,
+    deleteMoodEntry,
+    clearMoodHistory,
+    moodStats,
+    moodTrend,
+  } = useMoodTracking();
+
+  // Gradient editor hook
+  const {
+    gradientEnabled,
+    setGradientEnabled,
+    gradientType,
+    setGradientType,
+    gradientAngle,
+    setGradientAngle,
+    gradientColors,
+    gradientCSS,
+    addColorStop,
+    removeColorStop,
+    updateColorStop,
+    customGradients,
+    loadPreset,
+    saveCustomGradient,
+    deleteCustomGradient,
+    loadCustomGradient,
+    reverseGradient,
+    rotateGradient,
+    radialPosition,
+    setRadialPosition,
+  } = useGradientState();
 
   // Touch gestures for mobile (pinch-to-zoom, two-finger pan)
   useTouchGestures({
@@ -1494,6 +1539,7 @@ export default function ColoringGame() {
               ] : [
                 { id: 'tools', icon: '🖌️', label: 'Tools' },
                 { id: 'colors', icon: '🎨', label: 'Colors' },
+                { id: 'gradient', icon: '🌈', label: 'Gradient' },
                 { id: 'canvas', icon: '⚙️', label: 'Canvas' },
               ]}
               activeTab={leftSidebarTab}
@@ -1545,6 +1591,33 @@ export default function ColoringGame() {
                   selectedHarmony={selectedHarmony}
                   setSelectedHarmony={setSelectedHarmony}
                   harmonyColors={harmonyColors}
+                  darkMode={darkMode}
+                />
+              )}
+              {leftSidebarTab === 'gradient' && (
+                <GradientEditor
+                  gradientEnabled={gradientEnabled}
+                  setGradientEnabled={setGradientEnabled}
+                  gradientType={gradientType}
+                  setGradientType={setGradientType}
+                  gradientAngle={gradientAngle}
+                  setGradientAngle={setGradientAngle}
+                  gradientColors={gradientColors}
+                  gradientCSS={gradientCSS}
+                  addColorStop={addColorStop}
+                  removeColorStop={removeColorStop}
+                  updateColorStop={updateColorStop}
+                  presetGradients={presetGradients}
+                  customGradients={customGradients}
+                  loadPreset={loadPreset}
+                  saveCustomGradient={saveCustomGradient}
+                  deleteCustomGradient={deleteCustomGradient}
+                  loadCustomGradient={loadCustomGradient}
+                  reverseGradient={reverseGradient}
+                  rotateGradient={rotateGradient}
+                  gradientTypes={gradientTypes}
+                  radialPosition={radialPosition}
+                  setRadialPosition={setRadialPosition}
                   darkMode={darkMode}
                 />
               )}
@@ -1779,13 +1852,14 @@ export default function ColoringGame() {
           </div>
         </div>
 
-        {/* Right Sidebar - Layers & Wellness (desktop only) - hidden on tablet/mobile and in focus mode */}
+        {/* Right Sidebar - Layers, Wellness & Mood (desktop only) - hidden on tablet/mobile and in focus mode */}
         {isDesktop && !focusMode && (
           <div className={`w-56 ${theme.panel} border-l ${theme.border} flex flex-col overflow-hidden`}>
             <TabPanel
               tabs={[
                 { id: 'layers', icon: '📑', label: 'Layers' },
                 { id: 'wellness', icon: '🧘', label: 'Wellness' },
+                { id: 'mood', icon: '💭', label: 'Mood' },
               ]}
               activeTab={rightSidebarTab}
               onChange={setRightSidebarTab}
@@ -1868,6 +1942,28 @@ export default function ColoringGame() {
                   currentTrack={currentTrack}
                   playTrack={playTrack}
                   stopMusic={stopMusic}
+                  darkMode={darkMode}
+                />
+              )}
+              {rightSidebarTab === 'mood' && (
+                <MoodTracker
+                  currentMood={currentMood}
+                  moodNote={moodNote}
+                  setMoodNote={setMoodNote}
+                  selectedActivities={selectedActivities}
+                  toggleActivity={toggleActivity}
+                  showMoodPrompt={showMoodPrompt}
+                  dismissMoodPrompt={dismissMoodPrompt}
+                  showMoodHistory={showMoodHistory}
+                  setShowMoodHistory={setShowMoodHistory}
+                  groupedHistory={groupedHistory}
+                  recordMood={recordMood}
+                  deleteMoodEntry={deleteMoodEntry}
+                  clearMoodHistory={clearMoodHistory}
+                  moodStats={moodStats}
+                  moodTrend={moodTrend}
+                  moodOptions={moodOptions}
+                  activityTags={activityTags}
                   darkMode={darkMode}
                 />
               )}
