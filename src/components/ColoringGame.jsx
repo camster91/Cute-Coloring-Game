@@ -28,6 +28,17 @@ const backgroundColors = [
   '#0f0f0f', '#2d2d44', '#1e3a5f', '#0a1929'
 ];
 
+// Canvas size presets for different use cases
+const canvasSizes = [
+  { id: 'small', name: 'Small', width: 420, height: 300, icon: '📱' },
+  { id: 'medium', name: 'Medium', width: 800, height: 600, icon: '💻' },
+  { id: 'large', name: 'Large', width: 1200, height: 900, icon: '🖥️' },
+  { id: 'hd', name: 'HD (16:9)', width: 1920, height: 1080, icon: '📺' },
+  { id: 'square', name: 'Square', width: 1000, height: 1000, icon: '⬜' },
+  { id: 'a4portrait', name: 'A4 Portrait', width: 595, height: 842, icon: '📄' },
+  { id: 'a4landscape', name: 'A4 Landscape', width: 842, height: 595, icon: '📃' },
+];
+
 // Brush types with visual characteristics
 const brushTypes = [
   { id: 'pen', name: 'Pen', icon: '✒️', opacity: 1, softness: 0, minSize: 0.5, maxSize: 1 },
@@ -240,12 +251,28 @@ export default function ColoringGame() {
   const [selectedColor, setSelectedColor] = useState(colorPalettes.soft[0]);
   const [colorOpacity, setColorOpacity] = useState(1);
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
+
+  // Canvas size - now configurable
+  const [canvasSize, setCanvasSize] = useState(() => {
+    const saved = localStorage.getItem('calmDrawing_canvasSize');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed;
+    }
+    return canvasSizes[0]; // Default to small
+  });
+
+  // Zoom and pan for infinite canvas feel
   const [zoom, setZoom] = useState(() => {
     const saved = localStorage.getItem('calmDrawing_zoom');
     return saved ? parseFloat(saved) : 1;
   });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hasInitializedZoom, setHasInitializedZoom] = useState(false);
+
+  // Imported images (for coloring pages)
+  const [importedImages, setImportedImages] = useState([]);
+  const fileInputRef = useRef(null);
 
   // Tool state
   const [activeTool, setActiveTool] = useState('brush');
@@ -359,6 +386,21 @@ export default function ColoringGame() {
   const isTablet = windowSize.width >= 640 && windowSize.width < 1024;
   const isDesktop = windowSize.width >= 1024;
 
+  // Extra small screen detection for phones < 5" (typically < 360px width or < 640px height)
+  const isVerySmallScreen = windowSize.width < 360 || windowSize.height < 560;
+
+  // Performance mode for older devices - reduces effects and limits layers
+  const [performanceMode, setPerformanceMode] = useState(() => {
+    // Auto-detect low-end devices
+    const isLowEnd = navigator.hardwareConcurrency <= 2 ||
+                     navigator.deviceMemory <= 2 ||
+                     /Android [1-6]/.test(navigator.userAgent);
+    return localStorage.getItem('calmDrawing_performanceMode') === 'true' || isLowEnd;
+  });
+  const MAX_LAYERS_NORMAL = 10;
+  const MAX_LAYERS_PERFORMANCE = 4;
+  const MAX_PATHS_WARNING = 500;
+
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
@@ -442,6 +484,26 @@ export default function ColoringGame() {
     }
   }, [zoom, hasInitializedZoom]);
 
+  // Save performance mode preference
+  useEffect(() => {
+    localStorage.setItem('calmDrawing_performanceMode', performanceMode.toString());
+  }, [performanceMode]);
+
+  // Save canvas size preference
+  useEffect(() => {
+    localStorage.setItem('calmDrawing_canvasSize', JSON.stringify(canvasSize));
+  }, [canvasSize]);
+
+  // Performance warning when too many paths
+  useEffect(() => {
+    if (totalPathCount >= MAX_PATHS_WARNING && !performanceMode) {
+      setPerformanceWarningMessage(
+        `You have ${totalPathCount} strokes. Consider enabling Performance Mode or merging layers for smoother drawing.`
+      );
+      setShowPerformanceWarning(true);
+    }
+  }, [totalPathCount, performanceMode]);
+
   // QW4: Calculate and set optimal zoom on first load
   useEffect(() => {
     if (hasInitializedZoom) return;
@@ -462,8 +524,8 @@ export default function ColoringGame() {
     const availW = window.innerWidth - sidebarW - pad * 2;
     const availH = window.innerHeight - headerH - statusH - pad * 2;
 
-    const baseWidth = 420;
-    const baseHeight = 300;
+    const baseWidth = canvasSize.width;
+    const baseHeight = canvasSize.height;
 
     // Calculate zoom to fit with some margin (90% of available space)
     const zoomToFitW = (availW * 0.9) / baseWidth;
@@ -622,8 +684,10 @@ export default function ColoringGame() {
         }
       }
 
-      if (e.key === '=' || e.key === '+') setZoom(z => Math.min(4, z + 0.25));
-      if (e.key === '-' && !ctrlKey) setZoom(z => Math.max(0.25, z - 0.25));
+      // Zoom shortcuts
+      if (e.key === '=' || e.key === '+') setZoom(z => Math.min(5, z + 0.1));
+      if (e.key === '-' && !ctrlKey) setZoom(z => Math.max(0.1, z - 0.1));
+      if (e.key === '0' && !ctrlKey) { setZoom(1); setPan({ x: 0, y: 0 }); } // Reset view
     };
 
     const handleKeyUp = (e) => {
@@ -697,7 +761,24 @@ export default function ColoringGame() {
 
   const getActiveLayer = useCallback(() => layers.find(l => l.id === activeLayerId), [layers, activeLayerId]);
 
+  // Performance warnings state
+  const [showPerformanceWarning, setShowPerformanceWarning] = useState(false);
+  const [performanceWarningMessage, setPerformanceWarningMessage] = useState('');
+
+  // Calculate total path count for performance monitoring
+  const totalPathCount = layers.reduce((sum, layer) => sum + layer.paths.length, 0);
+  const maxLayers = performanceMode ? MAX_LAYERS_PERFORMANCE : MAX_LAYERS_NORMAL;
+
   const addLayer = () => {
+    if (layers.length >= maxLayers) {
+      setPerformanceWarningMessage(
+        performanceMode
+          ? `Layer limit reached (${MAX_LAYERS_PERFORMANCE} max in performance mode). Merge layers or disable performance mode.`
+          : `Layer limit reached (${MAX_LAYERS_NORMAL} max). Consider merging layers for better performance.`
+      );
+      setShowPerformanceWarning(true);
+      return;
+    }
     const newLayer = {
       id: `layer-${Date.now()}`,
       name: `Layer ${layers.length + 1}`,
@@ -708,6 +789,30 @@ export default function ColoringGame() {
     };
     setLayers([...layers, newLayer]);
     setActiveLayerId(newLayer.id);
+  };
+
+  // Merge all visible layers into one (performance optimization)
+  const mergeVisibleLayers = () => {
+    const visibleLayers = layers.filter(l => l.visible);
+    if (visibleLayers.length <= 1) return;
+
+    const mergedPaths = visibleLayers.flatMap(l =>
+      l.paths.map(p => ({ ...p, opacity: (p.opacity || 1) * l.opacity }))
+    );
+
+    const newLayer = {
+      id: `layer-${Date.now()}`,
+      name: 'Merged Layer',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      paths: mergedPaths
+    };
+
+    const hiddenLayers = layers.filter(l => !l.visible);
+    setLayers([...hiddenLayers, newLayer]);
+    setActiveLayerId(newLayer.id);
+    saveToHistory([...hiddenLayers, newLayer]);
   };
 
   const deleteLayer = (id) => {
@@ -758,8 +863,8 @@ export default function ColoringGame() {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-    let x = ((clientX - rect.left) / rect.width) * 420;
-    let y = ((clientY - rect.top) / rect.height) * 300;
+    let x = ((clientX - rect.left) / rect.width) * canvasSize.width;
+    let y = ((clientY - rect.top) / rect.height) * canvasSize.height;
 
     if (snapToGrid) {
       x = Math.round(x / gridSize) * gridSize;
@@ -778,7 +883,7 @@ export default function ColoringGame() {
 
   const generateSymmetricPoints = useCallback((point, mode) => {
     const points = [point];
-    const cx = 210, cy = 150;
+    const cx = canvasSize.width / 2, cy = canvasSize.height / 2;
 
     if (mode.id === 'horizontal') {
       points.push({ x: 2 * cx - point.x, y: point.y });
@@ -896,8 +1001,39 @@ export default function ColoringGame() {
         setHexInput(backgroundColor);
         setActiveTool('brush');
       }
+    } else if (activeTool === 'fill') {
+      // Flood fill tool - adds a filled circle at click position
+      // For proper flood fill on imported images, we'd need canvas-based fill
+      e.preventDefault();
+      const layer = getActiveLayer();
+      if (layer?.locked) return;
+
+      saveToHistory();
+
+      // Create a fill dot at the click position
+      // This is useful for coloring in areas
+      const fillElement = {
+        id: `fill-${Date.now()}`,
+        type: 'fill',
+        x: pos.x,
+        y: pos.y,
+        color: selectedColor,
+        size: brushSize * 2, // Fill size based on brush size
+        opacity: colorOpacity,
+      };
+
+      setLayers(prev => prev.map(l =>
+        l.id === activeLayerId
+          ? { ...l, paths: [...l.paths, fillElement] }
+          : l
+      ));
+
+      // Add to recent colors
+      if (!recentColors.includes(selectedColor)) {
+        setRecentColors(prev => [selectedColor, ...prev.slice(0, 9)]);
+      }
     }
-  }, [isPanning, palmRejection, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors]);
+  }, [isPanning, palmRejection, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors, activeLayerId]);
 
   const handlePointerMove = useCallback((e) => {
     // Always track cursor position for brush preview
@@ -1032,7 +1168,91 @@ export default function ColoringGame() {
   const clearDrawing = () => {
     saveToHistory();
     setLayers(prev => prev.map(l => ({ ...l, paths: [] })));
+    setImportedImages([]);
   };
+
+  // Import image for coloring
+  const handleImageImport = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Scale image to fit canvas while maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        const maxW = canvasSize.width * 0.9;
+        const maxH = canvasSize.height * 0.9;
+
+        if (width > maxW) {
+          height = (height * maxW) / width;
+          width = maxW;
+        }
+        if (height > maxH) {
+          width = (width * maxH) / height;
+          height = maxH;
+        }
+
+        const newImage = {
+          id: `img-${Date.now()}`,
+          src: event.target.result,
+          x: (canvasSize.width - width) / 2,
+          y: (canvasSize.height - height) / 2,
+          width,
+          height,
+          opacity: 1,
+        };
+
+        saveToHistory();
+        setImportedImages(prev => [...prev, newImage]);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, [canvasSize, saveToHistory]);
+
+  // Delete imported image
+  const deleteImportedImage = useCallback((imageId) => {
+    saveToHistory();
+    setImportedImages(prev => prev.filter(img => img.id !== imageId));
+  }, [saveToHistory]);
+
+  // Change canvas size
+  const handleCanvasSizeChange = useCallback((newSize) => {
+    // Optionally scale content when changing size
+    const scaleX = newSize.width / canvasSize.width;
+    const scaleY = newSize.height / canvasSize.height;
+
+    setCanvasSize(newSize);
+
+    // Scale imported images
+    setImportedImages(prev => prev.map(img => ({
+      ...img,
+      x: img.x * scaleX,
+      y: img.y * scaleY,
+      width: img.width * scaleX,
+      height: img.height * scaleY,
+    })));
+
+    // Reset pan when changing canvas size
+    setPan({ x: 0, y: 0 });
+
+    // Calculate new zoom to fit
+    const sidebarW = window.innerWidth < 768 ? 0 : 224 * 2;
+    const pad = 16;
+    const availW = window.innerWidth - sidebarW - pad * 2;
+    const availH = window.innerHeight - 80 - pad * 2;
+
+    const zoomToFitW = (availW * 0.9) / newSize.width;
+    const zoomToFitH = (availH * 0.9) / newSize.height;
+    const optimalZoom = Math.min(zoomToFitW, zoomToFitH, 2);
+    setZoom(Math.max(0.1, Math.round(optimalZoom * 20) / 20));
+  }, [canvasSize]);
 
   // Confirm text input and add to layer
   const confirmText = useCallback(() => {
@@ -1122,8 +1342,8 @@ export default function ColoringGame() {
     const availW = windowSize.width - sidebarW - pad * 2;
     const availH = windowSize.height - headerH - statusH - pad * 2;
 
-    const baseWidth = 420;
-    const baseHeight = 300;
+    const baseWidth = canvasSize.width;
+    const baseHeight = canvasSize.height;
 
     // Calculate zoom to fit with some margin (95% of available space)
     const zoomToFitW = (availW * 0.95) / baseWidth;
@@ -1209,27 +1429,23 @@ export default function ColoringGame() {
 
   // Calculate canvas size to fill available space
   // Mobile: no sidebars, Tablet: one sidebar (224px), Desktop: two sidebars (448px)
-  const sidebarWidth = isMobile ? 0 : (focusMode ? 0 : (isTablet ? 224 : 224 * 2));
-  const headerHeight = focusMode ? 0 : (isMobile ? 44 : 52);
-  const statusHeight = focusMode ? 0 : (isMobile ? 0 : 28);
-  const padding = isMobile ? 4 : (isTablet ? 8 : 16);
+  // Very small screens: auto-enable focus mode for maximum canvas space
+  const effectiveFocusMode = focusMode || isVerySmallScreen;
+  const sidebarWidth = isMobile ? 0 : (effectiveFocusMode ? 0 : (isTablet ? 224 : 224 * 2));
+  const headerHeight = effectiveFocusMode ? 0 : (isMobile ? 44 : (isVerySmallScreen ? 36 : 52));
+  const statusHeight = effectiveFocusMode ? 0 : (isMobile ? 0 : 28);
+  const padding = isVerySmallScreen ? 2 : (isMobile ? 4 : (isTablet ? 8 : 16));
 
   const availableWidth = windowSize.width - sidebarWidth - padding * 2;
   const availableHeight = windowSize.height - headerHeight - statusHeight - padding * 2;
 
-  // Maintain 420:300 aspect ratio while filling space
-  const aspectRatio = 420 / 300;
-  let canvasWidth, canvasHeight;
+  // Use actual canvas aspect ratio
+  const aspectRatio = canvasSize.width / canvasSize.height;
 
-  if (availableWidth / availableHeight > aspectRatio) {
-    // Height is limiting factor
-    canvasHeight = Math.max(200, availableHeight);
-    canvasWidth = canvasHeight * aspectRatio;
-  } else {
-    // Width is limiting factor
-    canvasWidth = Math.max(280, availableWidth);
-    canvasHeight = canvasWidth / aspectRatio;
-  }
+  // For professional feel: canvas renders at its native size * zoom
+  // Canvas can extend beyond viewport when zoomed in (infinite canvas)
+  const displayWidth = canvasSize.width * zoom;
+  const displayHeight = canvasSize.height * zoom;
 
   const theme = {
     bg: darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50',
@@ -1243,6 +1459,15 @@ export default function ColoringGame() {
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden select-none ${theme.bg} ${theme.text}`}>
+      {/* Hidden file input for image import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageImport}
+        className="hidden"
+      />
+
       {/* Focus Mode - Zen Drawing Experience */}
       {focusMode && (
         <>
@@ -1474,6 +1699,54 @@ export default function ColoringGame() {
           </button>
 
           <div className={`w-px h-6 mx-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+          {/* Zoom Controls */}
+          <div className="hidden sm:flex items-center gap-1">
+            <button
+              onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}
+              className={`p-1.5 rounded-lg ${theme.hover} text-sm`}
+              title="Zoom Out (-)"
+            >
+              ➖
+            </button>
+            <span className={`text-xs w-12 text-center font-mono ${theme.textMuted}`}>
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={() => setZoom(z => Math.min(5, z + 0.1))}
+              className={`p-1.5 rounded-lg ${theme.hover} text-sm`}
+              title="Zoom In (+)"
+            >
+              ➕
+            </button>
+            <button
+              onClick={fitToScreen}
+              className={`p-1.5 rounded-lg ${theme.hover} text-xs`}
+              title="Fit to Screen"
+            >
+              ⛶
+            </button>
+          </div>
+
+          <div className={`hidden sm:block w-px h-6 mx-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+
+          {/* Pan Tool Toggle */}
+          <button
+            onClick={() => setIsPanning(!isPanning)}
+            className={`p-2 rounded-xl transition-all ${isPanning ? 'bg-indigo-500/20 text-indigo-500 ring-2 ring-indigo-500' : theme.hover}`}
+            title="Pan Mode (Space)"
+          >
+            ✋
+          </button>
+
+          {/* Import */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className={`p-2 rounded-xl ${theme.hover} transition-all`}
+            title="Import Image"
+          >
+            📂
+          </button>
 
           {/* Export & Settings */}
           <button
@@ -1892,6 +2165,11 @@ export default function ColoringGame() {
                       setActiveLayerId(newLayers[idx - 1].id);
                     }
                   }}
+                  onMergeVisible={mergeVisibleLayers}
+                  performanceMode={performanceMode}
+                  onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+                  maxLayers={maxLayers}
+                  totalPathCount={totalPathCount}
                   darkMode={darkMode}
                 />
               )}
@@ -1900,6 +2178,9 @@ export default function ColoringGame() {
                   backgroundColor={backgroundColor}
                   setBackgroundColor={setBackgroundColor}
                   backgroundColors={backgroundColors}
+                  canvasSizes={canvasSizes}
+                  currentCanvasSize={canvasSize}
+                  onCanvasSizeChange={handleCanvasSizeChange}
                   showGrid={showGrid}
                   setShowGrid={setShowGrid}
                   gridSize={gridSize}
@@ -1911,6 +2192,9 @@ export default function ColoringGame() {
                   setExportFormat={setExportFormat}
                   exportQuality={exportQuality}
                   setExportQuality={setExportQuality}
+                  onImportImage={() => fileInputRef.current?.click()}
+                  importedImages={importedImages}
+                  onDeleteImage={deleteImportedImage}
                   onClearCanvas={clearDrawing}
                   darkMode={darkMode}
                 />
@@ -1919,19 +2203,29 @@ export default function ColoringGame() {
           </div>
         )}
 
-        {/* Canvas Area */}
-        <div ref={containerRef} className="flex-1 flex items-center justify-center p-2 overflow-hidden" style={{ cursor: isPanning ? 'grab' : 'default' }}>
+        {/* Canvas Area - infinite canvas with scroll/pan */}
+        <div
+          ref={containerRef}
+          className="flex-1 flex items-center justify-center overflow-auto relative"
+          style={{
+            cursor: isPanning ? 'grabbing' : (activeTool === 'pan' ? 'grab' : 'default'),
+            background: darkMode ? '#1a1a2e' : '#e8e4ef',
+          }}
+        >
           <div
-            className="relative rounded-2xl shadow-2xl overflow-hidden transition-transform"
+            className="relative shadow-2xl"
             style={{
-              width: canvasWidth * zoom,
-              height: canvasHeight * zoom,
+              width: displayWidth,
+              height: displayHeight,
               transform: `translate(${pan.x}px, ${pan.y}px)`,
+              transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+              minWidth: displayWidth,
+              minHeight: displayHeight,
             }}
           >
             <svg
               ref={canvasRef}
-              viewBox="0 0 420 300"
+              viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`}
               className="w-full h-full touch-none"
               style={{
                 backgroundColor,
@@ -1946,14 +2240,28 @@ export default function ColoringGame() {
               onPointerLeave={(e) => { setCursorPosition(null); handlePointerUp(e); }}
               onPointerCancel={handlePointerUp}
             >
+              {/* Imported images (coloring pages) */}
+              {importedImages.map(img => (
+                <image
+                  key={img.id}
+                  href={img.src}
+                  x={img.x}
+                  y={img.y}
+                  width={img.width}
+                  height={img.height}
+                  opacity={img.opacity}
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
+
               {/* Grid */}
               {showGrid && (
                 <g opacity="0.25">
-                  {Array.from({ length: Math.ceil(420 / gridSize) + 1 }).map((_, i) => (
-                    <line key={`v${i}`} x1={i * gridSize} y1="0" x2={i * gridSize} y2="300" stroke={darkMode ? '#666' : '#aaa'} strokeWidth="0.5" />
+                  {Array.from({ length: Math.ceil(canvasSize.width / gridSize) + 1 }).map((_, i) => (
+                    <line key={`v${i}`} x1={i * gridSize} y1="0" x2={i * gridSize} y2={canvasSize.height} stroke={darkMode ? '#666' : '#aaa'} strokeWidth="0.5" />
                   ))}
-                  {Array.from({ length: Math.ceil(300 / gridSize) + 1 }).map((_, i) => (
-                    <line key={`h${i}`} x1="0" y1={i * gridSize} x2="420" y2={i * gridSize} stroke={darkMode ? '#666' : '#aaa'} strokeWidth="0.5" />
+                  {Array.from({ length: Math.ceil(canvasSize.height / gridSize) + 1 }).map((_, i) => (
+                    <line key={`h${i}`} x1="0" y1={i * gridSize} x2={canvasSize.width} y2={i * gridSize} stroke={darkMode ? '#666' : '#aaa'} strokeWidth="0.5" />
                   ))}
                 </g>
               )}
@@ -1962,14 +2270,15 @@ export default function ColoringGame() {
               {symmetryMode.id !== 'none' && (
                 <g opacity="0.15" strokeDasharray="4,4">
                   {(symmetryMode.id === 'horizontal' || symmetryMode.id === 'quad') && (
-                    <line x1="210" y1="0" x2="210" y2="300" stroke="#9333ea" strokeWidth="1.5" />
+                    <line x1={canvasSize.width / 2} y1="0" x2={canvasSize.width / 2} y2={canvasSize.height} stroke="#9333ea" strokeWidth="1.5" />
                   )}
                   {(symmetryMode.id === 'vertical' || symmetryMode.id === 'quad') && (
-                    <line x1="0" y1="150" x2="420" y2="150" stroke="#9333ea" strokeWidth="1.5" />
+                    <line x1="0" y1={canvasSize.height / 2} x2={canvasSize.width} y2={canvasSize.height / 2} stroke="#9333ea" strokeWidth="1.5" />
                   )}
                   {symmetryMode.spokes && Array.from({ length: symmetryMode.spokes }).map((_, i) => {
                     const angle = (2 * Math.PI * i) / symmetryMode.spokes;
-                    return <line key={i} x1="210" y1="150" x2={210 + 200 * Math.cos(angle)} y2={150 + 200 * Math.sin(angle)} stroke="#9333ea" strokeWidth="1" />;
+                    const radius = Math.min(canvasSize.width, canvasSize.height) * 0.45;
+                    return <line key={i} x1={canvasSize.width / 2} y1={canvasSize.height / 2} x2={canvasSize.width / 2 + radius * Math.cos(angle)} y2={canvasSize.height / 2 + radius * Math.sin(angle)} stroke="#9333ea" strokeWidth="1" />;
                   })}
                 </g>
               )}
@@ -1989,6 +2298,15 @@ export default function ColoringGame() {
                     >
                       {path.text}
                     </text>
+                  ) : path.type === 'fill' ? (
+                    <circle
+                      key={path.id || i}
+                      cx={path.x}
+                      cy={path.y}
+                      r={path.size / 2}
+                      fill={path.color}
+                      opacity={path.opacity}
+                    />
                   ) : path.isShape ? (
                     <path key={path.id || i} d={shapeToPath(path)} fill={path.fill ? path.color : 'none'} stroke={path.color} strokeWidth={path.strokeWidth} opacity={path.opacity} />
                   ) : (
@@ -2249,6 +2567,11 @@ export default function ColoringGame() {
                       setActiveLayerId(newLayers[idx - 1].id);
                     }
                   }}
+                  onMergeVisible={mergeVisibleLayers}
+                  performanceMode={performanceMode}
+                  onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+                  maxLayers={maxLayers}
+                  totalPathCount={totalPathCount}
                   darkMode={darkMode}
                 />
               )}
@@ -2429,6 +2752,11 @@ export default function ColoringGame() {
                     setActiveLayerId(newLayers[idx - 1].id);
                   }
                 }}
+                onMergeVisible={mergeVisibleLayers}
+                performanceMode={performanceMode}
+                onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+                maxLayers={maxLayers}
+                totalPathCount={totalPathCount}
                 darkMode={darkMode}
               />
             )}
@@ -2512,6 +2840,59 @@ export default function ColoringGame() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Performance Warning Modal */}
+      {showPerformanceWarning && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowPerformanceWarning(false)}>
+          <div
+            className={`${theme.panel} rounded-3xl shadow-2xl p-6 max-w-sm w-full animate-scaleIn`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-4">
+              <span className="text-4xl">⚡</span>
+              <h3 className={`text-lg font-semibold mt-2 ${theme.text}`}>Performance Notice</h3>
+            </div>
+            <p className={`text-sm ${theme.textMuted} text-center mb-6`}>
+              {performanceWarningMessage}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPerformanceWarning(false)}
+                className={`flex-1 py-3 rounded-xl ${theme.hover} font-medium`}
+              >
+                Got it
+              </button>
+              {!performanceMode && (
+                <button
+                  onClick={() => {
+                    setPerformanceMode(true);
+                    setShowPerformanceWarning(false);
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium"
+                >
+                  Enable Performance Mode
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Very Small Screen Indicator - helps kids know they can expand */}
+      {isVerySmallScreen && !effectiveFocusMode && (
+        <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setFocusMode(true)}
+            className={`
+              px-3 py-1.5 rounded-full text-xs font-medium shadow-lg
+              bg-gradient-to-r from-indigo-500 to-purple-500 text-white
+              animate-pulse
+            `}
+          >
+            📱 Tap for fullscreen
+          </button>
         </div>
       )}
 

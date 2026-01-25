@@ -16,6 +16,12 @@ export default function LayersPanel({
   onMoveLayer,
   onDuplicateLayer,
   onMergeDown,
+  onMergeVisible,
+  // Performance
+  performanceMode = false,
+  onTogglePerformanceMode,
+  maxLayers = 10,
+  totalPathCount = 0,
   // Theme
   darkMode = false,
 }) {
@@ -242,10 +248,57 @@ export default function LayersPanel({
         })}
       </div>
 
-      {/* Layer count */}
-      <p className={`text-[10px] ${theme.textMuted} text-center`}>
-        {layers.length} layer{layers.length !== 1 ? 's' : ''} • {activeLayer?.name || 'None selected'}
-      </p>
+      {/* Layer count & Performance info */}
+      <div className={`p-2 rounded-lg ${theme.section} border ${theme.sectionBorder} space-y-2`}>
+        <div className="flex items-center justify-between">
+          <span className={`text-[10px] ${theme.textMuted}`}>
+            {layers.length}/{maxLayers} layers • {totalPathCount} strokes
+          </span>
+          {layers.filter(l => l.visible).length > 1 && onMergeVisible && (
+            <button
+              onClick={onMergeVisible}
+              className={`text-[10px] px-2 py-0.5 rounded ${theme.hover} ${theme.text}`}
+              title="Merge all visible layers"
+            >
+              Merge All
+            </button>
+          )}
+        </div>
+
+        {/* Performance Mode Toggle */}
+        {onTogglePerformanceMode && (
+          <div className="flex items-center justify-between">
+            <span className={`text-[10px] ${theme.text}`}>
+              ⚡ Performance Mode
+            </span>
+            <button
+              onClick={onTogglePerformanceMode}
+              className={`
+                relative w-8 h-4 rounded-full transition-colors duration-200
+                ${performanceMode
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                  : (darkMode ? 'bg-gray-600' : 'bg-gray-300')
+                }
+              `}
+            >
+              <span
+                className={`
+                  absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform duration-200
+                  ${performanceMode ? 'translate-x-4' : 'translate-x-0.5'}
+                `}
+              />
+            </button>
+          </div>
+        )}
+
+        {/* Performance warning */}
+        {(layers.length >= maxLayers - 1 || totalPathCount > 300) && (
+          <p className="text-[9px] text-amber-500">
+            ⚠️ {layers.length >= maxLayers - 1 ? 'Near layer limit. ' : ''}
+            {totalPathCount > 300 ? 'Many strokes - consider merging.' : ''}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
