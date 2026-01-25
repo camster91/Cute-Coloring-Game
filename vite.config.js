@@ -8,6 +8,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      // Force service worker to take control immediately
+      devOptions: {
+        enabled: false
+      },
       manifest: {
         name: 'Calm Drawing',
         short_name: 'Calm Draw',
@@ -28,6 +32,9 @@ export default defineConfig({
         categories: ['games', 'kids', 'education', 'entertainment']
       },
       workbox: {
+        // Force immediate activation of new service worker
+        skipWaiting: true,
+        clientsClaim: true,
         // Cache all assets for offline use
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         runtimeCaching: [
