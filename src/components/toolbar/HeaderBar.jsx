@@ -6,7 +6,7 @@ import { IconButton } from '../ui';
 export default function HeaderBar({
   // Branding
   title = 'Calm Drawing',
-  // Template selection
+  // Template selection (legacy - not used anymore)
   drawings,
   currentDrawing,
   setCurrentDrawing,
@@ -21,11 +21,17 @@ export default function HeaderBar({
   onZoomOut,
   onFitToScreen,
   onResetZoom,
+  // Pan mode
+  isPanning,
+  onTogglePan,
+  // Canvas size
+  canvasSize,
   // Focus mode
   focusMode,
   setFocusMode,
   // Actions
   onExport,
+  onImport,
   onToggleSounds,
   soundsActive,
   onToggleBreathing,
@@ -42,22 +48,18 @@ export default function HeaderBar({
 }) {
   return (
     <header className={`flex items-center justify-between px-3 py-2 ${theme.panel} border-b ${theme.border} shadow-sm`}>
-      {/* Left: Logo + Template */}
+      {/* Left: Logo + Canvas Info */}
       <div className="flex items-center gap-3">
         <h1 className={`text-lg font-bold ${theme.text}`}>
           🎨 {title}
         </h1>
 
-        {/* Template selector */}
-        <select
-          value={currentDrawing}
-          onChange={(e) => setCurrentDrawing(parseInt(e.target.value))}
-          className={`px-2 py-1 text-sm rounded-lg ${theme.hover} ${theme.text} bg-transparent border ${theme.border}`}
-        >
-          {drawings.map((d, i) => (
-            <option key={i} value={i}>{d.icon} {d.name}</option>
-          ))}
-        </select>
+        {/* Canvas size indicator */}
+        {canvasSize && (
+          <span className={`text-xs px-2 py-1 rounded ${theme.hover} ${theme.textMuted}`}>
+            {canvasSize.width}×{canvasSize.height}
+          </span>
+        )}
       </div>
 
       {/* Right: Actions */}
@@ -145,6 +147,16 @@ export default function HeaderBar({
 
         <div className={`w-px h-6 mx-1 ${theme.border}`} />
 
+        {/* Import */}
+        {onImport && (
+          <IconButton
+            icon="📂"
+            label="Import Image"
+            onClick={onImport}
+            darkMode={darkMode}
+          />
+        )}
+
         {/* Export */}
         <IconButton
           icon="💾"
@@ -152,6 +164,17 @@ export default function HeaderBar({
           onClick={onExport}
           darkMode={darkMode}
         />
+
+        {/* Pan Tool */}
+        {onTogglePan && (
+          <IconButton
+            icon="✋"
+            label="Pan Canvas (Space)"
+            onClick={onTogglePan}
+            active={isPanning}
+            darkMode={darkMode}
+          />
+        )}
 
         {/* Theme toggle */}
         <IconButton

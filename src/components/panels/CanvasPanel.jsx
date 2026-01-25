@@ -8,6 +8,10 @@ export default function CanvasPanel({
   backgroundColor,
   setBackgroundColor,
   backgroundColors = ['#FFFFFF', '#F5F5F5', '#E0E0E0', '#1a1a2e', '#16213e', '#0f0f23', '#FFF8E7', '#F0F4FF'],
+  // Canvas Size
+  canvasSizes = [],
+  currentCanvasSize,
+  onCanvasSizeChange,
   // Grid
   showGrid,
   setShowGrid,
@@ -21,6 +25,10 @@ export default function CanvasPanel({
   setExportFormat,
   exportQuality,
   setExportQuality,
+  // Import
+  onImportImage,
+  importedImages = [],
+  onDeleteImage,
   // Clear
   onClearCanvas,
   // Theme
@@ -47,8 +55,68 @@ export default function CanvasPanel({
 
   return (
     <div className="space-y-4">
+      {/* Canvas Size */}
+      {canvasSizes.length > 0 && onCanvasSizeChange && (
+        <Section title="📐 Canvas Size">
+          <div className="grid grid-cols-2 gap-1">
+            {canvasSizes.map((size) => (
+              <button
+                key={size.id}
+                onClick={() => onCanvasSizeChange(size)}
+                className={`px-2 py-1.5 text-xs rounded flex items-center gap-1 ${
+                  currentCanvasSize?.id === size.id ? theme.active : theme.hover
+                } border ${theme.border}`}
+              >
+                <span>{size.icon}</span>
+                <span className="truncate">{size.name}</span>
+              </button>
+            ))}
+          </div>
+          {currentCanvasSize && (
+            <p className={`text-[10px] ${theme.textMuted} text-center mt-1`}>
+              {currentCanvasSize.width} × {currentCanvasSize.height} px
+            </p>
+          )}
+        </Section>
+      )}
+
+      {/* Import Image */}
+      {onImportImage && (
+        <Section title="🖼️ Import Coloring Page">
+          <button
+            onClick={onImportImage}
+            className={`w-full px-3 py-2 text-sm rounded-lg ${theme.hover} border ${theme.border} border-dashed`}
+          >
+            📂 Import Image...
+          </button>
+          {importedImages.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <p className={`text-[10px] ${theme.textMuted}`}>
+                {importedImages.length} image(s) imported
+              </p>
+              {importedImages.map((img) => (
+                <div
+                  key={img.id}
+                  className={`flex items-center justify-between px-2 py-1 rounded ${theme.section}`}
+                >
+                  <span className={`text-xs truncate ${theme.text}`}>
+                    {Math.round(img.width)}×{Math.round(img.height)}
+                  </span>
+                  <button
+                    onClick={() => onDeleteImage(img.id)}
+                    className="text-red-400 hover:text-red-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
+
       {/* Background */}
-      <Section title="Background">
+      <Section title="🎨 Background">
         <div className="flex flex-wrap gap-1">
           {backgroundColors.map((color) => (
             <ColorSwatch
