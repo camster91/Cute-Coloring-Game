@@ -359,6 +359,21 @@ export default function ColoringGame() {
   const isTablet = windowSize.width >= 640 && windowSize.width < 1024;
   const isDesktop = windowSize.width >= 1024;
 
+  // Extra small screen detection for phones < 5" (typically < 360px width or < 640px height)
+  const isVerySmallScreen = windowSize.width < 360 || windowSize.height < 560;
+
+  // Performance mode for older devices - reduces effects and limits layers
+  const [performanceMode, setPerformanceMode] = useState(() => {
+    // Auto-detect low-end devices
+    const isLowEnd = navigator.hardwareConcurrency <= 2 ||
+                     navigator.deviceMemory <= 2 ||
+                     /Android [1-6]/.test(navigator.userAgent);
+    return localStorage.getItem('calmDrawing_performanceMode') === 'true' || isLowEnd;
+  });
+  const MAX_LAYERS_NORMAL = 10;
+  const MAX_LAYERS_PERFORMANCE = 4;
+  const MAX_PATHS_WARNING = 500;
+
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const { isPlaying, currentTrack, playTrack, stopMusic } = useMusic();
@@ -441,6 +456,21 @@ export default function ColoringGame() {
       localStorage.setItem('calmDrawing_zoom', zoom.toString());
     }
   }, [zoom, hasInitializedZoom]);
+
+  // Save performance mode preference
+  useEffect(() => {
+    localStorage.setItem('calmDrawing_performanceMode', performanceMode.toString());
+  }, [performanceMode]);
+
+  // Performance warning when too many paths
+  useEffect(() => {
+    if (totalPathCount >= MAX_PATHS_WARNING && !performanceMode) {
+      setPerformanceWarningMessage(
+        `You have ${totalPathCount} strokes. Consider enabling Performance Mode or merging layers for smoother drawing.`
+      );
+      setShowPerformanceWarning(true);
+    }
+  }, [totalPathCount, performanceMode]);
 
   // QW4: Calculate and set optimal zoom on first load
   useEffect(() => {
@@ -697,7 +727,24 @@ export default function ColoringGame() {
 
   const getActiveLayer = useCallback(() => layers.find(l => l.id === activeLayerId), [layers, activeLayerId]);
 
+  // Performance warnings state
+  const [showPerformanceWarning, setShowPerformanceWarning] = useState(false);
+  const [performanceWarningMessage, setPerformanceWarningMessage] = useState('');
+
+  // Calculate total path count for performance monitoring
+  const totalPathCount = layers.reduce((sum, layer) => sum + layer.paths.length, 0);
+  const maxLayers = performanceMode ? MAX_LAYERS_PERFORMANCE : MAX_LAYERS_NORMAL;
+
   const addLayer = () => {
+    if (layers.length >= maxLayers) {
+      setPerformanceWarningMessage(
+        performanceMode
+          ? `Layer limit reached (${MAX_LAYERS_PERFORMANCE} max in performance mode). Merge layers or disable performance mode.`
+          : `Layer limit reached (${MAX_LAYERS_NORMAL} max). Consider merging layers for better performance.`
+      );
+      setShowPerformanceWarning(true);
+      return;
+    }
     const newLayer = {
       id: `layer-${Date.now()}`,
       name: `Layer ${layers.length + 1}`,
@@ -708,6 +755,30 @@ export default function ColoringGame() {
     };
     setLayers([...layers, newLayer]);
     setActiveLayerId(newLayer.id);
+  };
+
+  // Merge all visible layers into one (performance optimization)
+  const mergeVisibleLayers = () => {
+    const visibleLayers = layers.filter(l => l.visible);
+    if (visibleLayers.length <= 1) return;
+
+    const mergedPaths = visibleLayers.flatMap(l =>
+      l.paths.map(p => ({ ...p, opacity: (p.opacity || 1) * l.opacity }))
+    );
+
+    const newLayer = {
+      id: `layer-${Date.now()}`,
+      name: 'Merged Layer',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      paths: mergedPaths
+    };
+
+    const hiddenLayers = layers.filter(l => !l.visible);
+    setLayers([...hiddenLayers, newLayer]);
+    setActiveLayerId(newLayer.id);
+    saveToHistory([...hiddenLayers, newLayer]);
   };
 
   const deleteLayer = (id) => {
@@ -1209,10 +1280,12 @@ export default function ColoringGame() {
 
   // Calculate canvas size to fill available space
   // Mobile: no sidebars, Tablet: one sidebar (224px), Desktop: two sidebars (448px)
-  const sidebarWidth = isMobile ? 0 : (focusMode ? 0 : (isTablet ? 224 : 224 * 2));
-  const headerHeight = focusMode ? 0 : (isMobile ? 44 : 52);
-  const statusHeight = focusMode ? 0 : (isMobile ? 0 : 28);
-  const padding = isMobile ? 4 : (isTablet ? 8 : 16);
+  // Very small screens: auto-enable focus mode for maximum canvas space
+  const effectiveFocusMode = focusMode || isVerySmallScreen;
+  const sidebarWidth = isMobile ? 0 : (effectiveFocusMode ? 0 : (isTablet ? 224 : 224 * 2));
+  const headerHeight = effectiveFocusMode ? 0 : (isMobile ? 44 : (isVerySmallScreen ? 36 : 52));
+  const statusHeight = effectiveFocusMode ? 0 : (isMobile ? 0 : 28);
+  const padding = isVerySmallScreen ? 2 : (isMobile ? 4 : (isTablet ? 8 : 16));
 
   const availableWidth = windowSize.width - sidebarWidth - padding * 2;
   const availableHeight = windowSize.height - headerHeight - statusHeight - padding * 2;
@@ -1892,6 +1965,11 @@ export default function ColoringGame() {
                       setActiveLayerId(newLayers[idx - 1].id);
                     }
                   }}
+                  onMergeVisible={mergeVisibleLayers}
+                  performanceMode={performanceMode}
+                  onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+                  maxLayers={maxLayers}
+                  totalPathCount={totalPathCount}
                   darkMode={darkMode}
                 />
               )}
@@ -2249,6 +2327,11 @@ export default function ColoringGame() {
                       setActiveLayerId(newLayers[idx - 1].id);
                     }
                   }}
+                  onMergeVisible={mergeVisibleLayers}
+                  performanceMode={performanceMode}
+                  onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+                  maxLayers={maxLayers}
+                  totalPathCount={totalPathCount}
                   darkMode={darkMode}
                 />
               )}
@@ -2429,6 +2512,11 @@ export default function ColoringGame() {
                     setActiveLayerId(newLayers[idx - 1].id);
                   }
                 }}
+                onMergeVisible={mergeVisibleLayers}
+                performanceMode={performanceMode}
+                onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+                maxLayers={maxLayers}
+                totalPathCount={totalPathCount}
                 darkMode={darkMode}
               />
             )}
@@ -2512,6 +2600,59 @@ export default function ColoringGame() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Performance Warning Modal */}
+      {showPerformanceWarning && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowPerformanceWarning(false)}>
+          <div
+            className={`${theme.panel} rounded-3xl shadow-2xl p-6 max-w-sm w-full animate-scaleIn`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-4">
+              <span className="text-4xl">⚡</span>
+              <h3 className={`text-lg font-semibold mt-2 ${theme.text}`}>Performance Notice</h3>
+            </div>
+            <p className={`text-sm ${theme.textMuted} text-center mb-6`}>
+              {performanceWarningMessage}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPerformanceWarning(false)}
+                className={`flex-1 py-3 rounded-xl ${theme.hover} font-medium`}
+              >
+                Got it
+              </button>
+              {!performanceMode && (
+                <button
+                  onClick={() => {
+                    setPerformanceMode(true);
+                    setShowPerformanceWarning(false);
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium"
+                >
+                  Enable Performance Mode
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Very Small Screen Indicator - helps kids know they can expand */}
+      {isVerySmallScreen && !effectiveFocusMode && (
+        <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setFocusMode(true)}
+            className={`
+              px-3 py-1.5 rounded-full text-xs font-medium shadow-lg
+              bg-gradient-to-r from-indigo-500 to-purple-500 text-white
+              animate-pulse
+            `}
+          >
+            📱 Tap for fullscreen
+          </button>
         </div>
       )}
 
