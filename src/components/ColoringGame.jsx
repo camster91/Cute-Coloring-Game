@@ -5,9 +5,20 @@ import { TabPanel, BottomSheet } from './ui';
 import { ToolsPanel, ColorsPanel, CanvasPanel, LayersPanel, WellnessPanel, MoodTracker, GradientEditor } from './panels';
 import { StatusBar } from './toolbar';
 import { GridOverlay, LazyBrushIndicator, FloatingToolbar } from './canvas';
-import { useTouchGestures, useMusic, useAmbientSounds, hexToHSL, hslToHex, generateColorHarmony } from './hooks';
-import useMoodTracking, { moodOptions, activityTags } from './hooks/useMoodTracking';
-import useGradientState, { presetGradients, gradientTypes } from './hooks/useGradientState';
+import {
+  useTouchGestures,
+  useMusic,
+  useAmbientSounds,
+  hexToHSL,
+  hslToHex,
+  generateColorHarmony,
+  useMoodTracking,
+  moodOptions,
+  activityTags,
+  useGradientState,
+  presetGradients,
+  gradientTypes
+} from './hooks';
 
 // ============ CONSTANTS ============
 
