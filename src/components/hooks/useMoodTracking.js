@@ -229,9 +229,5 @@ export default function useMoodTracking() {
     // Statistics
     moodStats,
     moodTrend,
-
-    // Constants
-    moodOptions,
-    activityTags,
   };
 }
