@@ -204,8 +204,7 @@ export default function useGradientState() {
     removeColorStop,
     updateColorStop,
 
-    // Preset/custom gradients
-    presetGradients,
+    // Custom gradients
     customGradients,
     loadPreset,
     saveCustomGradient,
@@ -215,8 +214,5 @@ export default function useGradientState() {
     // Utility actions
     reverseGradient,
     rotateGradient,
-
-    // Constants
-    gradientTypes,
   };
 }
