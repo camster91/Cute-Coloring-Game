@@ -35,8 +35,13 @@ export default function useMoodTracking() {
 
   // Mood history (persisted)
   const [moodHistory, setMoodHistory] = useState(() => {
-    const saved = localStorage.getItem('calmDrawing_moodHistory');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('calmDrawing_moodHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.warn('Failed to load mood history:', e);
+      return [];
+    }
   });
 
   // Show mood prompt on session start
@@ -45,7 +50,7 @@ export default function useMoodTracking() {
 
   // Save history to localStorage
   useEffect(() => {
-    localStorage.setItem('calmDrawing_moodHistory', JSON.stringify(moodHistory));
+    try { localStorage.setItem('calmDrawing_moodHistory', JSON.stringify(moodHistory)); } catch (e) {}
   }, [moodHistory]);
 
   // Record mood entry
@@ -105,7 +110,7 @@ export default function useMoodTracking() {
   // Clear all history
   const clearMoodHistory = useCallback(() => {
     setMoodHistory([]);
-    localStorage.removeItem('calmDrawing_moodHistory');
+    try { localStorage.removeItem('calmDrawing_moodHistory'); } catch (e) {}
   }, []);
 
   // Get mood statistics

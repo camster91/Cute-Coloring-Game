@@ -6,8 +6,13 @@ import { useState, useEffect, useCallback } from 'react';
 export default function useCanvasState() {
   // Zoom with localStorage persistence
   const [zoom, setZoom] = useState(() => {
-    const saved = localStorage.getItem('calmDrawing_zoom');
-    return saved ? parseFloat(saved) : 1;
+    try {
+      const saved = localStorage.getItem('calmDrawing_zoom');
+      if (saved) return parseFloat(saved);
+    } catch (e) {
+      console.warn('Failed to load zoom:', e);
+    }
+    return 1;
   });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hasInitializedZoom, setHasInitializedZoom] = useState(false);
@@ -22,7 +27,7 @@ export default function useCanvasState() {
 
   // Persist zoom to localStorage
   useEffect(() => {
-    localStorage.setItem('calmDrawing_zoom', zoom.toString());
+    try { localStorage.setItem('calmDrawing_zoom', zoom.toString()); } catch (e) {}
   }, [zoom]);
 
   // Track window resize

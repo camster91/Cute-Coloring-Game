@@ -40,8 +40,13 @@ export default function useGradientState() {
 
   // Saved custom gradients
   const [customGradients, setCustomGradients] = useState(() => {
-    const saved = localStorage.getItem('calmDrawing_customGradients');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('calmDrawing_customGradients');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.warn('Failed to load custom gradients:', e);
+      return [];
+    }
   });
 
   // Generate CSS gradient string
@@ -139,7 +144,7 @@ export default function useGradientState() {
     };
     const updated = [...customGradients, newGradient];
     setCustomGradients(updated);
-    localStorage.setItem('calmDrawing_customGradients', JSON.stringify(updated));
+    try { localStorage.setItem('calmDrawing_customGradients', JSON.stringify(updated)); } catch (e) {}
     return newGradient.id;
   }, [gradientColors, gradientAngle, gradientType, radialPosition, customGradients]);
 
@@ -147,7 +152,7 @@ export default function useGradientState() {
   const deleteCustomGradient = useCallback((id) => {
     const updated = customGradients.filter(g => g.id !== id);
     setCustomGradients(updated);
-    localStorage.setItem('calmDrawing_customGradients', JSON.stringify(updated));
+    try { localStorage.setItem('calmDrawing_customGradients', JSON.stringify(updated)); } catch (e) {}
   }, [customGradients]);
 
   // Load a custom gradient

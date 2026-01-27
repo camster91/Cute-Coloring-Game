@@ -265,18 +265,26 @@ export default function ColoringGame() {
 
   // Canvas size - now configurable
   const [canvasSize, setCanvasSize] = useState(() => {
-    const saved = localStorage.getItem('calmDrawing_canvasSize');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed;
+    try {
+      const saved = localStorage.getItem('calmDrawing_canvasSize');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Failed to load canvas size:', e);
     }
     return canvasSizes[0]; // Default to small
   });
 
   // Zoom and pan for infinite canvas feel
   const [zoom, setZoom] = useState(() => {
-    const saved = localStorage.getItem('calmDrawing_zoom');
-    return saved ? parseFloat(saved) : 1;
+    try {
+      const saved = localStorage.getItem('calmDrawing_zoom');
+      if (saved) return parseFloat(saved);
+    } catch (e) {
+      console.warn('Failed to load zoom:', e);
+    }
+    return 1;
   });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hasInitializedZoom, setHasInitializedZoom] = useState(false);
@@ -402,11 +410,16 @@ export default function ColoringGame() {
 
   // Performance mode for older devices - reduces effects and limits layers
   const [performanceMode, setPerformanceMode] = useState(() => {
-    // Auto-detect low-end devices
-    const isLowEnd = navigator.hardwareConcurrency <= 2 ||
-                     navigator.deviceMemory <= 2 ||
-                     /Android [1-6]/.test(navigator.userAgent);
-    return localStorage.getItem('calmDrawing_performanceMode') === 'true' || isLowEnd;
+    try {
+      // Auto-detect low-end devices (with fallbacks for unsupported APIs)
+      const cores = navigator.hardwareConcurrency || 4;
+      const memory = navigator.deviceMemory || 4;
+      const isLowEnd = cores <= 2 || memory <= 2 || /Android [1-6]/.test(navigator.userAgent);
+      return localStorage.getItem('calmDrawing_performanceMode') === 'true' || isLowEnd;
+    } catch (e) {
+      console.warn('Failed to detect performance mode:', e);
+      return false;
+    }
   });
   const MAX_LAYERS_NORMAL = 10;
   const MAX_LAYERS_PERFORMANCE = 4;
@@ -491,18 +504,18 @@ export default function ColoringGame() {
   // QW2: Save zoom to localStorage when it changes
   useEffect(() => {
     if (hasInitializedZoom) {
-      localStorage.setItem('calmDrawing_zoom', zoom.toString());
+      try { localStorage.setItem('calmDrawing_zoom', zoom.toString()); } catch (e) {}
     }
   }, [zoom, hasInitializedZoom]);
 
   // Save performance mode preference
   useEffect(() => {
-    localStorage.setItem('calmDrawing_performanceMode', performanceMode.toString());
+    try { localStorage.setItem('calmDrawing_performanceMode', performanceMode.toString()); } catch (e) {}
   }, [performanceMode]);
 
   // Save canvas size preference
   useEffect(() => {
-    localStorage.setItem('calmDrawing_canvasSize', JSON.stringify(canvasSize));
+    try { localStorage.setItem('calmDrawing_canvasSize', JSON.stringify(canvasSize)); } catch (e) {}
   }, [canvasSize]);
 
   // Performance warning when too many paths
@@ -520,11 +533,13 @@ export default function ColoringGame() {
     if (hasInitializedZoom) return;
 
     // Only auto-fit if no saved zoom preference
-    const savedZoom = localStorage.getItem('calmDrawing_zoom');
-    if (savedZoom) {
-      setHasInitializedZoom(true);
-      return;
-    }
+    try {
+      const savedZoom = localStorage.getItem('calmDrawing_zoom');
+      if (savedZoom) {
+        setHasInitializedZoom(true);
+        return;
+      }
+    } catch (e) {}
 
     // Calculate optimal zoom to fit canvas
     const sidebarW = window.innerWidth < 768 ? 0 : (focusMode ? 0 : 224 * 2);
