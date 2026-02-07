@@ -711,7 +711,7 @@ export default function ColoringGame() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isDrawing]);
+  }, [isDrawing, undo, redo, focusMode]);
 
   // Wheel zoom
   useEffect(() => {
@@ -890,7 +890,7 @@ export default function ColoringGame() {
     const tiltY = e.tiltY || 0;
 
     return { x, y, pressure, tiltX, tiltY };
-  }, [snapToGrid, gridSize]);
+  }, [snapToGrid, gridSize, canvasSize.width, canvasSize.height]);
 
   const generateSymmetricPoints = useCallback((point, mode) => {
     const points = [point];
@@ -917,7 +917,7 @@ export default function ColoringGame() {
     }
 
     return points;
-  }, []);
+  }, [canvasSize.width, canvasSize.height]);
 
   const handlePointerDown = useCallback((e) => {
     if (isPanning) return;
@@ -1044,7 +1044,7 @@ export default function ColoringGame() {
         setRecentColors(prev => [selectedColor, ...prev.slice(0, 9)]);
       }
     }
-  }, [isPanning, palmRejection, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors, activeLayerId]);
+  }, [isPanning, palmRejection, getPointerPosition, getActiveLayer, activeTool, saveToHistory, generateSymmetricPoints, symmetryMode, backgroundColor, selectedColor, brushSize, brushType, colorOpacity, shapeType, shapeFill, setSelectedColor, setHexInput, setRecentColors, activeLayerId, lazyBrushEnabled, brushStabilization, recentColors]);
 
   const handlePointerMove = useCallback((e) => {
     // Always track cursor position for brush preview
@@ -1145,7 +1145,7 @@ export default function ColoringGame() {
 
       setCurrentShape(prev => ({ ...prev, endX, endY }));
     }
-  }, [isPanning, zoom, isDrawing, getPointerPosition, activeTool, currentPath, currentShape, brushType, generateSymmetricPoints, symmetryMode]);
+  }, [isPanning, zoom, isDrawing, getPointerPosition, activeTool, currentPath, currentShape, brushType, generateSymmetricPoints, symmetryMode, lazyBrushEnabled, lazyBrushRadius]);
 
   const handlePointerUp = useCallback(() => {
     if (!isDrawing) return;
@@ -1363,7 +1363,7 @@ export default function ColoringGame() {
 
     setZoom(Math.max(0.25, Math.round(optimalZoom * 4) / 4)); // Round to nearest 0.25
     setPan({ x: 0, y: 0 }); // Center the canvas
-  }, [isMobile, focusMode, windowSize]);
+  }, [isMobile, focusMode, windowSize, canvasSize]);
 
   // ============ EXPORT ============
 
@@ -1399,8 +1399,8 @@ export default function ColoringGame() {
       img.onload = () => {
         const scale = quality;
         const canvas = document.createElement('canvas');
-        canvas.width = 420 * scale;
-        canvas.height = 300 * scale;
+        canvas.width = canvasSize.width * scale;
+        canvas.height = canvasSize.height * scale;
         const ctx = canvas.getContext('2d');
 
         // Only fill background if not transparent (or if JPG which doesn't support transparency)
@@ -2459,8 +2459,8 @@ export default function ColoringGame() {
               <div
                 className="absolute"
                 style={{
-                  left: `${(textPosition.x / 420) * 100}%`,
-                  top: `${(textPosition.y / 300) * 100}%`,
+                  left: `${(textPosition.x / canvasSize.width) * 100}%`,
+                  top: `${(textPosition.y / canvasSize.height) * 100}%`,
                   transform: 'translate(-4px, -50%)',
                 }}
               >
@@ -2482,7 +2482,7 @@ export default function ColoringGame() {
                     ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}
                   `}
                   style={{
-                    fontSize: `${fontSize * zoom * (canvasWidth / 420)}px`,
+                    fontSize: `${fontSize * zoom * (canvasSize.width / 420)}px`,
                     fontFamily: fontFamily.value,
                     color: selectedColor,
                     minWidth: '100px',
@@ -2617,7 +2617,7 @@ export default function ColoringGame() {
                       setActiveSounds(prev => { const n = {...prev}; delete n[soundId]; return n; });
                     } else {
                       startSound(soundId, masterVolume);
-                      setActiveSounds(prev => ({ ...prev, [soundId]: true }));
+                      setActiveSounds(prev => ({ ...prev, [soundId]: masterVolume }));
                     }
                   }}
                   masterVolume={masterVolume}
@@ -2826,7 +2826,7 @@ export default function ColoringGame() {
                     ))}
                   </div>
                   <div className={`text-xs ${theme.textMuted} mt-1`}>
-                    {420 * exportQuality} × {300 * exportQuality}px
+                    {canvasSize.width * exportQuality} × {canvasSize.height * exportQuality}px
                   </div>
                 </div>
                 {exportFormat === 'png' && (
